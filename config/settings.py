@@ -28,6 +28,7 @@ class Settings:
     # Vector Store Settings
     VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "chroma")  # chroma, faiss, simple
     CHROMA_PERSIST_DIR: str = str(INDEX_DIR / "chroma")
+    CHROMA_COLLECTION: str = os.getenv("CHROMA_COLLECTION", "documents")
     
     # Index Settings
     CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "1024"))

@@ -1,51 +1,130 @@
-import json
+﻿import json
 import re
-from llama_index.core import StorageContext, load_index_from_storage
-from llama_index.core.settings import Settings
-from llama_index.core.query_engine import RetrieverQueryEngine
-from llama_index.core.retrievers import VectorIndexRetriever
-from llama_index.core.response_synthesizers import ResponseSynthesizer
-from llama_index.llms.ollama import Ollama
+import socket
 
-from .settings import INDEX_DIR, OLLAMA_BASE_URL, LLM_MODEL, EMBED_MODEL
-from .schema import AssistantResponse
+import chromadb
+import httpx
+import requests
+from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
+from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.response_synthesizers import ResponseSynthesizer
+from llama_index.core.retrievers import VectorIndexRetriever
+from llama_index.core.settings import Settings
+from llama_index.llms.ollama import Ollama
+from llama_index.vector_stores.chroma import ChromaVectorStore
+
+try:
+    from .schema import AssistantResponse
+    from .settings import (
+        CHROMA_COLLECTION,
+        CHROMA_PERSIST_DIR,
+        INDEX_DIR,
+        OLLAMA_BASE_URL,
+        OLLAMA_MODEL,
+        VECTOR_STORE_TYPE,
+    )
+except ImportError:  # pragma: no cover - script execution fallback
+    from src.schema import AssistantResponse
+    from src.settings import (
+        CHROMA_COLLECTION,
+        CHROMA_PERSIST_DIR,
+        INDEX_DIR,
+        OLLAMA_BASE_URL,
+        OLLAMA_MODEL,
+        VECTOR_STORE_TYPE,
+    )
+
+
+def _friendly_ollama_error(exc: Exception) -> RuntimeError:
+    """Convert low-level errors into actionable Ollama guidance."""
+    if isinstance(
+        exc,
+        (socket.timeout, TimeoutError, requests.exceptions.Timeout, httpx.TimeoutException),
+    ):
+        return RuntimeError(
+            f"Ollama request timed out. Check server responsiveness at {OLLAMA_BASE_URL} and try again."
+        )
+
+    if isinstance(
+        exc,
+        (ConnectionRefusedError, requests.exceptions.ConnectionError, httpx.ConnectError),
+    ):
+        return RuntimeError(
+            f"Cannot connect to Ollama at {OLLAMA_BASE_URL}. Ensure Ollama Desktop is running and reachable."
+        )
+
+    if isinstance(exc, httpx.HTTPStatusError):
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code == 404:
+            return RuntimeError(
+                f"Ollama model '{OLLAMA_MODEL}' was not found (HTTP 404). Pull the model in Ollama Desktop or update OLLAMA_MODEL."
+            )
+        return RuntimeError(
+            f"Ollama request failed with HTTP {status_code}. Verify OLLAMA_BASE_URL={OLLAMA_BASE_URL} and OLLAMA_MODEL={OLLAMA_MODEL}."
+        )
+
+    if isinstance(exc, requests.exceptions.HTTPError):
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code == 404:
+            return RuntimeError(
+                f"Ollama model '{OLLAMA_MODEL}' was not found (HTTP 404). Pull the model in Ollama Desktop or update OLLAMA_MODEL."
+            )
+        return RuntimeError(
+            f"Ollama request failed with HTTP {status_code}. Verify OLLAMA_BASE_URL={OLLAMA_BASE_URL} and OLLAMA_MODEL={OLLAMA_MODEL}."
+        )
+
+    return RuntimeError(
+        "Ollama query failed unexpectedly. Verify OLLAMA_BASE_URL and OLLAMA_MODEL settings."
+    )
+
 
 def extract_json(text: str) -> dict:
-    """
-    LLM ชอบแถมข้อความก่อน/หลัง JSON — จับเฉพาะก้อน JSON ที่ใหญ่สุด
-    """
+    """Extract the first JSON object from model output."""
     match = re.search(r"\{.*\}", text, flags=re.S)
     if not match:
         raise ValueError("No JSON object found in model output.")
     return json.loads(match.group(0))
 
-def get_engine(top_k: int = 8):
-    # LLM
-    Settings.llm = Ollama(
-        model=LLM_MODEL,
-        base_url=OLLAMA_BASE_URL,
-        request_timeout=120
-    )
 
-    # โหลด index
+def _load_index():
+    if VECTOR_STORE_TYPE == "chroma":
+        try:
+            chroma_client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
+            chroma_collection = chroma_client.get_collection(CHROMA_COLLECTION)
+            vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+            return VectorStoreIndex.from_vector_store(vector_store)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Unable to load ChromaDB collection '{CHROMA_COLLECTION}' from "
+                f"'{CHROMA_PERSIST_DIR}'. Build the index first with "
+                "VECTOR_STORE_TYPE=chroma."
+            ) from exc
+
     storage_context = StorageContext.from_defaults(persist_dir=INDEX_DIR)
-    index = load_index_from_storage(storage_context)
+    return load_index_from_storage(storage_context)
 
-    # Retriever (+ metadata filters ได้ตอนใช้ Qdrant/PGVector จะเด่นกว่า FAISS)
-    retriever = VectorIndexRetriever(
-        index=index,
-        similarity_top_k=top_k
-    )
 
-    # Synthesizer (แบบ custom prompt)
-    synthesizer = ResponseSynthesizer.from_args(
-        response_mode="compact"  # บีบ context + ลดเยิ่นเย้อ
-    )
+def get_engine(top_k: int = 8):
+    try:
+        Settings.llm = Ollama(
+            model=OLLAMA_MODEL,
+            base_url=OLLAMA_BASE_URL,
+            request_timeout=120,
+        )
+    except Exception as exc:
+        raise _friendly_ollama_error(exc) from None
+
+    index = _load_index()
+
+    retriever = VectorIndexRetriever(index=index, similarity_top_k=top_k)
+
+    synthesizer = ResponseSynthesizer.from_args(response_mode="compact")
 
     return RetrieverQueryEngine(
         retriever=retriever,
-        response_synthesizer=synthesizer
+        response_synthesizer=synthesizer,
     )
+
 
 PROMPT_TEMPLATE = """You are a Credit Underwriting Assistant.
 You MUST answer ONLY in valid JSON matching this schema:
@@ -71,34 +150,41 @@ User question:
 {question}
 """
 
+
 def explain_case(question: str, decision_json: dict):
     engine = get_engine(top_k=10)
 
     prompt = PROMPT_TEMPLATE.format(
         decision_json=json.dumps(decision_json, ensure_ascii=False),
-        question=question
+        question=question,
     )
 
-    # Query (RAG)
-    raw = engine.query(prompt)
-    text = str(raw)
+    try:
+        raw = engine.query(prompt)
+    except Exception as exc:
+        raise _friendly_ollama_error(exc) from None
 
-    # Parse + Validate
+    text = str(raw)
     data = extract_json(text)
     validated = AssistantResponse.model_validate(data)
     return validated
 
+
 if __name__ == "__main__":
-    # ตัวอย่าง decision_json (ของจริงให้เรียกจาก Decision Service)
     decision_json = {
         "decision": {"final": "review", "confidence": "medium"},
-        "model": {"approval_prob": 0.62, "model_decision": "review",
-                  "top_shap": [{"feature":"overdue","impact":-0.31,"direction":"negative"}]},
-        "rules": {"hard_fail": False, "checks": []}
+        "model": {
+            "approval_prob": 0.62,
+            "model_decision": "review",
+            "top_shap": [
+                {"feature": "overdue", "impact": -0.31, "direction": "negative"}
+            ],
+        },
+        "rules": {"hard_fail": False, "checks": []},
     }
 
     resp = explain_case(
-        question="สรุปเหตุผลและ next steps สำหรับเคสนี้",
-        decision_json=decision_json
+        question="Summarize rationale and next steps for this case.",
+        decision_json=decision_json,
     )
     print(resp.model_dump_json(indent=2, ensure_ascii=False))

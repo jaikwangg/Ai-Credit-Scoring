@@ -76,17 +76,14 @@ class IndexManager:
         """Create index with Chroma vector store"""
         # Initialize Chroma client
         chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-        chroma_collection = chroma_client.get_or_create_collection("documents")
+        chroma_collection = chroma_client.get_or_create_collection(settings.CHROMA_COLLECTION)
         
         # Create vector store
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         
         # Create index
-        index = VectorStoreIndex.from_documents(
-            nodes, 
-            storage_context=storage_context
-        )
+        index = VectorStoreIndex(nodes=nodes, storage_context=storage_context)
         return index
     
     def _create_faiss_index(self, nodes: List) -> VectorStoreIndex:
@@ -100,10 +97,7 @@ class IndexManager:
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         
         # Create index
-        index = VectorStoreIndex.from_documents(
-            nodes,
-            storage_context=storage_context
-        )
+        index = VectorStoreIndex(nodes=nodes, storage_context=storage_context)
         return index
     
     def _persist_index(self, index: VectorStoreIndex):
@@ -111,7 +105,7 @@ class IndexManager:
         try:
             self.index_dir.mkdir(parents=True, exist_ok=True)
             
-            if self.vector_store_type == "simple":
+            if self.vector_store_type in ("simple", "faiss"):
                 # For simple vector store, use LlamaIndex's built-in persistence
                 index.storage_context.persist(str(self.index_dir))
             
@@ -153,7 +147,7 @@ class IndexManager:
     def _load_chroma_index(self) -> VectorStoreIndex:
         """Load Chroma index"""
         chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-        chroma_collection = chroma_client.get_collection("documents")
+        chroma_collection = chroma_client.get_or_create_collection(settings.CHROMA_COLLECTION)
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
         index = VectorStoreIndex.from_vector_store(vector_store)
         return index
