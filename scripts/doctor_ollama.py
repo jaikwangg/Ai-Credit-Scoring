@@ -79,8 +79,8 @@ def main() -> int:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=15.0,
-        help="HTTP timeout in seconds (default: 15)",
+        default=90.0,
+        help="HTTP timeout in seconds (default: 90, models can be slow on first run)",
     )
     args = parser.parse_args()
 
@@ -184,6 +184,7 @@ def main() -> int:
         except requests.exceptions.Timeout:
             failures += 1
             _print_fail("Timeout during /api/generate.")
+            _print_warn("Models can take 30–90+ s on first run. Try: python scripts\\doctor_ollama.py --timeout 120")
         except requests.exceptions.RequestException as exc:
             failures += 1
             _print_fail(f"Request error during /api/generate: {exc}")

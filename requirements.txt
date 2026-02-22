@@ -1,6 +1,6 @@
-# Core LlamaIndex
-llama-index==0.9.48
-llama-index-core==0.9.48
+# Core LlamaIndex (0.10.x required by llama-index-llms-openai/embeddings-openai)
+llama-index>=0.10.1,<0.11.0
+llama-index-core>=0.10.1,<0.11.0
 llama-index-llms-openai==0.1.5
 llama-index-embeddings-openai==0.1.5
 
@@ -28,7 +28,7 @@ httpx==0.28.1
 # API & Web (optional)
 fastapi==0.108.0
 uvicorn==0.25.0
-pydantic==2.5.3
+pydantic>=2.9,<3
 
 # Testing
 pytest==7.4.3
