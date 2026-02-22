@@ -17,7 +17,8 @@ class Settings:
     
     # Model Settings
     MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
+    # BGE-M3 for Thai/multilingual embeddings (1024 dim)
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", os.getenv("EMBED_MODEL", "BAAI/bge-m3"))
     
     # Directory Paths
     PROJECT_ROOT: Path = Path(__file__).parent.parent
