@@ -1,13 +1,11 @@
 ﻿import os
 
 import chromadb
-import faiss
 from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.settings import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.vector_stores.faiss import FaissVectorStore
 
 try:
     from .settings import (
@@ -42,6 +40,15 @@ def _get_storage_context() -> StorageContext:
         return StorageContext.from_defaults(vector_store=vector_store)
 
     # Default to FAISS for backward compatibility when not using Chroma.
+    import faiss
+    try:
+        from llama_index.vector_stores.faiss import FaissVectorStore
+    except ImportError as exc:
+        raise RuntimeError(
+            "FAISS vector store package is not installed for this LlamaIndex version. "
+            "Use VECTOR_STORE_TYPE=chroma or install the FAISS plugin package."
+        ) from exc
+
     os.makedirs(INDEX_DIR, exist_ok=True)
     dim = Settings.embed_model.get_text_embedding_dimension()
     faiss_index = faiss.IndexFlatIP(dim)

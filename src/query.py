@@ -7,9 +7,10 @@ import httpx
 import requests
 from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core.query_engine import RetrieverQueryEngine
-from llama_index.core.response_synthesizers import ResponseSynthesizer
+from llama_index.core.response_synthesizers import get_response_synthesizer
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.settings import Settings
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
@@ -18,6 +19,7 @@ try:
     from .settings import (
         CHROMA_COLLECTION,
         CHROMA_PERSIST_DIR,
+        EMBED_MODEL,
         INDEX_DIR,
         OLLAMA_BASE_URL,
         OLLAMA_MODEL,
@@ -28,6 +30,7 @@ except ImportError:  # pragma: no cover - script execution fallback
     from src.settings import (
         CHROMA_COLLECTION,
         CHROMA_PERSIST_DIR,
+        EMBED_MODEL,
         INDEX_DIR,
         OLLAMA_BASE_URL,
         OLLAMA_MODEL,
@@ -114,11 +117,12 @@ def get_engine(top_k: int = 8):
     except Exception as exc:
         raise _friendly_ollama_error(exc) from None
 
+    Settings.embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
     index = _load_index()
 
     retriever = VectorIndexRetriever(index=index, similarity_top_k=top_k)
 
-    synthesizer = ResponseSynthesizer.from_args(response_mode="compact")
+    synthesizer = get_response_synthesizer(response_mode="compact")
 
     return RetrieverQueryEngine(
         retriever=retriever,
