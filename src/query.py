@@ -1,4 +1,4 @@
-﻿import json
+import json
 import re
 import socket
 
@@ -90,6 +90,11 @@ def extract_json(text: str) -> dict:
 
 
 def _load_index():
+    # BGE-M3 embeddings (must match index build) for query encoding
+    Settings.embed_model = HuggingFaceEmbedding(
+        model_name=EMBED_MODEL,
+        embed_batch_size=32,
+    )
     if VECTOR_STORE_TYPE == "chroma":
         try:
             chroma_client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
@@ -117,12 +122,14 @@ def get_engine(top_k: int = 8):
     except Exception as exc:
         raise _friendly_ollama_error(exc) from None
 
-    Settings.embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
     index = _load_index()
 
     retriever = VectorIndexRetriever(index=index, similarity_top_k=top_k)
 
-    synthesizer = get_response_synthesizer(response_mode="compact")
+    synthesizer = get_response_synthesizer(
+        llm=Settings.llm,
+        response_mode="compact",
+    )
 
     return RetrieverQueryEngine(
         retriever=retriever,

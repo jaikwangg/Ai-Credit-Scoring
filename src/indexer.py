@@ -9,6 +9,8 @@ from typing import Optional, List
 from llama_index.core import VectorStoreIndex, StorageContext, load_index_from_storage
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.readers import SimpleDirectoryReader
+from llama_index.core.settings import Settings
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.vector_stores.faiss import FaissVectorStore
 import chromadb
@@ -57,6 +59,12 @@ class IndexManager:
         
         logger.info(f"Creating index with {len(nodes)} nodes using {self.vector_store_type}")
         
+        # BGE-M3 embeddings for Thai/multilingual support (1024 dim)
+        Settings.embed_model = HuggingFaceEmbedding(
+            model_name=settings.EMBEDDING_MODEL,
+            embed_batch_size=32,
+        )
+        
         # Create index based on vector store type
         if self.vector_store_type == "chroma":
             index = self._create_chroma_index(nodes)
@@ -88,8 +96,8 @@ class IndexManager:
     
     def _create_faiss_index(self, nodes: List) -> VectorStoreIndex:
         """Create index with FAISS vector store"""
-        # Create FAISS index
-        d = 1536  # Dimension for OpenAI embeddings
+        # Create FAISS index (1024 dim for BGE-M3)
+        d = Settings.embed_model.get_text_embedding_dimension()
         faiss_index = faiss.IndexFlatL2(d)
         
         # Create vector store
@@ -146,6 +154,11 @@ class IndexManager:
     
     def _load_chroma_index(self) -> VectorStoreIndex:
         """Load Chroma index"""
+        # Must use same BGE-M3 embedding model for query encoding
+        Settings.embed_model = HuggingFaceEmbedding(
+            model_name=settings.EMBEDDING_MODEL,
+            embed_batch_size=32,
+        )
         chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
         chroma_collection = chroma_client.get_or_create_collection(settings.CHROMA_COLLECTION)
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
