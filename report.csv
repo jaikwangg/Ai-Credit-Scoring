@@ -1,0 +1,6 @@
+metric,value
+total_queries,54
+mean_top1_score,0.443895
+mean_topk_score,0.419734
+mean_top1_top2_gap,0.008283
+count_no_answer,12

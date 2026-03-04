@@ -1,0 +1,92 @@
+Metadata-Version: 2.4
+Name: ai-credit-scoring
+Version: 0.1.0
+Summary: AI credit scoring and document query utilities
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: llama-index-core>=0.14.0
+Requires-Dist: llama-index-llms-openai
+Requires-Dist: llama-index-llms-ollama
+Requires-Dist: llama-index-embeddings-openai
+Requires-Dist: llama-index-embeddings-huggingface
+Requires-Dist: llama-index-vector-stores-faiss
+Requires-Dist: llama-index-vector-stores-chroma
+Requires-Dist: openai
+Requires-Dist: tiktoken
+Requires-Dist: ollama==0.6.1
+Requires-Dist: chromadb
+Requires-Dist: faiss-cpu==1.8.0
+Requires-Dist: PyPDF2==3.0.1
+Requires-Dist: python-docx==1.1.0
+Requires-Dist: openpyxl==3.1.2
+Requires-Dist: python-dotenv==1.0.0
+Requires-Dist: pandas==2.1.4
+Requires-Dist: numpy<2.0,>=1.26.4
+Requires-Dist: requests==2.32.3
+Requires-Dist: httpx==0.27.2
+Requires-Dist: fastapi==0.108.0
+Requires-Dist: uvicorn==0.25.0
+Requires-Dist: pydantic<3,>=2.9
+Requires-Dist: sqlalchemy<3,>=2.0
+Provides-Extra: dev
+Requires-Dist: pytest==7.4.3; extra == "dev"
+Requires-Dist: pytest-asyncio==0.21.1; extra == "dev"
+Requires-Dist: hypothesis==6.92.1; extra == "dev"
+
+# AI Credit Scoring
+
+## Windows PowerShell Setup (.venv) and Ollama
+
+This project is configured to use environment variables for Ollama:
+
+- `OLLAMA_BASE_URL` (default: `http://localhost:11434`)
+- `OLLAMA_MODEL` (default: `qwen3:8b`)
+
+### 1) Create and activate a virtual environment
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+If script execution is blocked in PowerShell, run once:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+### 2) Install dependencies
+
+```powershell
+pip install -r requirements.txt
+```
+
+### 3) Configure environment
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` if needed:
+
+- `OLLAMA_BASE_URL=http://localhost:11434`
+- `OLLAMA_MODEL=qwen3:8b`
+
+### 4) Run Ollama diagnostics
+
+```powershell
+python scripts\doctor_ollama.py
+```
+
+The doctor script checks:
+
+- Active Python + venv
+- `import ollama`
+- `GET /api/tags` connectivity and available models
+- Minimal text generation via Ollama HTTP API
+- Optional `ollama` Python client chat call
+
+### Notes
+
+- The project does **not** require the `ollama` CLI in `PATH`.
+- Ollama Desktop running locally is sufficient as long as `http://localhost:11434` is reachable.

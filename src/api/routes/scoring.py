@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 import logging
-import uuid
 from datetime import datetime
 
 from src.api.schemas.payload import ScoringRequest, ScoringResponse, ModelExplanations
@@ -52,14 +51,27 @@ async def request_credit_score(
         )
         
         # Step 4: Persist to Operational DB
-        db_result = models.CreditScoreResult(
-            request_id=response.request_id,
-            customer_id=payload.customer_id,
-            approved=response.approved,
-            probability_score=response.probability_score,
-            is_thin_file=merged_features["is_thin_file"]
+        # Idempotent write by request_id so repeated test runs don't fail with UNIQUE errors.
+        db_result = (
+            db.query(models.CreditScoreResult)
+            .filter(models.CreditScoreResult.request_id == response.request_id)
+            .first()
         )
-        db.add(db_result)
+        if db_result is None:
+            db_result = models.CreditScoreResult(
+                request_id=response.request_id,
+                customer_id=payload.customer_id,
+                approved=response.approved,
+                probability_score=response.probability_score,
+                is_thin_file=merged_features["is_thin_file"]
+            )
+            db.add(db_result)
+        else:
+            db_result.customer_id = payload.customer_id
+            db_result.approved = response.approved
+            db_result.probability_score = response.probability_score
+            db_result.is_thin_file = merged_features["is_thin_file"]
+
         db.commit()
         
         # Step 5: Dispatch Async tasks (Audit, saving to DB)

@@ -6,11 +6,11 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from llama_index.core import Document
-from llama_index.core.readers import PDFReader, SimpleDirectoryReader
+from llama_index.core import Document, SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
 
 from config.settings import settings
+from src.document_parser import StructuredDocumentParser
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,20 @@ class DataLoader:
         logger.info(f"Loading documents from {directory}")
         
         try:
+            # Try structured parser first
+            documents = StructuredDocumentParser.parse_directory(directory)
+            
+            if documents:
+                report = StructuredDocumentParser.get_last_parse_report()
+                quarantined = int(report.get("quarantined_docs", 0))
+                logger.info(
+                    "Loaded %s structured documents (quarantined skipped=%s)",
+                    len(documents),
+                    quarantined,
+                )
+                return documents
+            
+            # Fallback to simple directory reader
             reader = SimpleDirectoryReader(
                 input_dir=str(directory),
                 recursive=recursive,
@@ -77,12 +91,8 @@ class DataLoader:
             return None
         
         try:
-            if file_path.suffix.lower() == ".pdf":
-                reader = PDFReader()
-                documents = reader.load_data(file_path)
-            else:
-                reader = SimpleDirectoryReader(input_files=[str(file_path)])
-                documents = reader.load_data()
+            reader = SimpleDirectoryReader(input_files=[str(file_path)])
+            documents = reader.load_data()
             
             if documents:
                 logger.info(f"Loaded document: {file_path.name}")

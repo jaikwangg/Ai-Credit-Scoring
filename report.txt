@@ -1,0 +1,7 @@
+Similarity Distribution Report
+==============================
+Total queries: 54
+Mean top1 score: 0.4439
+Mean topK score: 0.4197
+Mean top1-top2 gap: 0.0083
+No-answer count: 12

@@ -110,10 +110,12 @@ class TestQueryEngineManager(unittest.TestCase):
             index=self.mock_index,
             similarity_top_k=3
         )
-        mock_synthesizer.assert_called_once_with(
-            response_mode="compact",
-            llm=self.query_manager.llm
-        )
+        mock_synthesizer.assert_called_once()
+        synth_kwargs = mock_synthesizer.call_args.kwargs
+        self.assertEqual(synth_kwargs["response_mode"], "compact")
+        self.assertEqual(synth_kwargs["llm"], self.query_manager.llm)
+        self.assertIn("text_qa_template", synth_kwargs)
+        self.assertIn("refine_template", synth_kwargs)
     
     def test_query_response_format(self):
         """Test query response format"""

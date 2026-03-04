@@ -1,7 +1,42 @@
+# Python virtual environments
 .venv/
 venv/
+env/
+
+# Python cache/build artifacts
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
 .pytest_cache/
 .mypy_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Environment files
 .env
+.env.*
+!.env.example
+
+# Local logs/reports
+*.log
+logs/
+reports/
+
+# Local runtime/data artifacts
+*.db
+sql_app.db
+storage/
+data/index/
+
+# Local helper/output directories
+/rag/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS-specific
+.DS_Store
+Thumbs.db

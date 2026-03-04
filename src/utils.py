@@ -46,8 +46,8 @@ def validate_environment() -> bool:
         # Check directories
         settings.ensure_directories()
         
-        # Check OpenAI API key
-        if not settings.OPENAI_API_KEY:
+        # Check API key only if not using Ollama
+        if not settings.USE_OLLAMA and not settings.OPENAI_API_KEY:
             logger.error("OPENAI_API_KEY not found in environment variables")
             return False
         

@@ -1,6 +1,6 @@
 # AI Credit Scoring
 
-## Windows PowerShell Setup (.venv) and Ollama
+## Windows PowerShell Setup (.venv), uv, and Ollama
 
 This project is configured to use environment variables for Ollama:
 
@@ -20,10 +20,18 @@ If script execution is blocked in PowerShell, run once:
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-### 2) Install dependencies
+### 2) Install uv
+
+Option A: install globally (recommended)
 
 ```powershell
-pip install -r requirements.txt
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Option B: install inside `.venv`
+
+```powershell
+python -m pip install uv
 ```
 
 ### 3) Configure environment
@@ -36,22 +44,71 @@ Edit `.env` if needed:
 
 - `OLLAMA_BASE_URL=http://localhost:11434`
 - `OLLAMA_MODEL=qwen3:8b`
+- `HF_TOKEN=hf_xxx` (optional, to remove HF unauthenticated warning)
 
-### 4) Run Ollama diagnostics
+### 4) Sync dependencies with uv
 
 ```powershell
-python scripts\doctor_ollama.py
+uv sync --extra dev
 ```
 
-The doctor script checks:
+If `uv` is not in `PATH`, use:
 
-- Active Python + venv
-- `import ollama`
-- `GET /api/tags` connectivity and available models
-- Minimal text generation via Ollama HTTP API
-- Optional `ollama` Python client chat call
+```powershell
+& .\.venv\Scripts\uv.exe sync --extra dev
+```
 
-### Notes
+## UV command cheatsheet
+
+### Ollama diagnostics
+
+```powershell
+uv run python scripts\doctor_ollama.py
+```
+
+### Build/rebuild vector index (ingest)
+
+```powershell
+uv run python -m src.ingest
+```
+
+### Run full RAG smoke test (includes interactive mode)
+
+```powershell
+uv run python test_cimb_loans.py
+```
+
+Auto-exit interactive mode:
+
+```powershell
+'quit' | uv run python test_cimb_loans.py
+```
+
+### Unit tests (all)
+
+```powershell
+uv run pytest tests -q
+```
+
+### Unit tests via project script
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run_rag_tests.ps1 -Mode unit -AllUnitTests
+```
+
+### Run a specific test file
+
+```powershell
+uv run pytest tests/test_scoring_api.py -q
+```
+
+### Generate similarity report from retrieval logs
+
+```powershell
+uv run python -m src.rag.report
+```
+
+## Notes
 
 - The project does **not** require the `ollama` CLI in `PATH`.
 - Ollama Desktop running locally is sufficient as long as `http://localhost:11434` is reachable.

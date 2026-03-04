@@ -139,15 +139,15 @@ def get_engine(top_k: int = 8):
 
 PROMPT_TEMPLATE = """You are a Credit Underwriting Assistant.
 You MUST answer ONLY in valid JSON matching this schema:
-{
+{{
   "summary": string,
   "decision": "approve"|"decline"|"need_more_info"|"review",
-  "reasons": [{"type":"rule"|"model"|"policy","text":string,"evidence":[{"doc_title":string,"version":string|null,"section":string|null,"page":number|null}]}],
+  "reasons": [{{"type":"rule"|"model"|"policy","text":string,"evidence":[{{"doc_title":string,"version":string|null,"section":string|null,"page":number|null}}]}}],
   "missing_info": [string],
   "next_actions": [string],
   "customer_message_draft": string|null,
   "risk_note": string|null
-}
+}}
 
 Rules:
 - Do NOT invent policy thresholds. If not found, say need_more_info or review and explain what is missing.
