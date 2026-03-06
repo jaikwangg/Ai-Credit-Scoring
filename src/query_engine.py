@@ -26,6 +26,7 @@ from src.rag.router import build_metadata_filters, metadata_matches_route, route
 from src.rag.validator import (
     CLOSE_ACCOUNT_CLARIFICATION_MESSAGE,
     NO_ANSWER_MESSAGE,
+    ROUTE_MUST_HAVE,
     needs_close_account_clarification,
     validate_nodes,
 )
@@ -202,13 +203,7 @@ STRICT_ROUTE_ALLOWED_CATEGORIES = {
     "hardship_support": {"hardship_support", "consumer_guideline"},
 }
 
-STRICT_ROUTE_MUST_HAVE = {
-    "policy_requirement": ("คุณสมบัติ", "เอกสาร", "เงื่อนไข", "รายได้ขั้นต่ำ", "eligibility"),
-    "interest_structure": ("ดอกเบี้ย", "mrr", "fixed", "floating", "%"),
-    "fee_structure": ("ค่าธรรมเนียม", "ค่าปรับ", "ค่าจดจำนอง", "จดจำนอง", "fee", "charge"),
-    "refinance": ("รีไฟแนนซ์", "สินเชื่อบ้าน", "บ้านแลกเงิน", "mortgage", "home loan"),
-    "hardship_support": ("มาตรการ", "พักชำระ", "ผ่อนไม่ไหว", "ปรับโครงสร้างหนี้", "โควิด", "น้ำท่วม", "relief"),
-}
+STRICT_ROUTE_MUST_HAVE = ROUTE_MUST_HAVE
 
 GLOBAL_BLOCKLIST = (
     "ndid",
@@ -502,27 +497,66 @@ class RelevanceValidatorPostprocessor(BaseNodePostprocessor):
         return sorted(validated, key=_safe_score, reverse=True)
 
 
+def _build_llm():
+    """
+    LLM factory — single place to swap providers.
+
+    Priority: USE_GEMINI > USE_OLLAMA > OpenAI
+
+    To migrate to Gemini 2/2.5 Flash, set USE_GEMINI=true and GEMINI_API_KEY in .env.
+    Required package: pip install llama-index-llms-gemini
+    """
+    if settings.USE_GEMINI:
+        # ------------------------------------------------------------------
+        # Gemini path (activate with USE_GEMINI=true in .env)
+        # Supports: gemini-2.0-flash, gemini-2.5-flash-preview-04-17
+        # ------------------------------------------------------------------
+        from llama_index.llms.gemini import Gemini  # noqa: PLC0415
+
+        logger.info("LLM provider: Gemini (model=%s)", settings.GEMINI_MODEL)
+        return Gemini(
+            model=settings.GEMINI_MODEL,
+            api_key=settings.GEMINI_API_KEY,
+            temperature=0.1,
+        )
+
+    if settings.USE_OLLAMA:
+        # ------------------------------------------------------------------
+        # Ollama path (default — local model, no API key needed)
+        # ------------------------------------------------------------------
+        logger.info(
+            "LLM provider: Ollama (model=%s, url=%s)",
+            settings.OLLAMA_MODEL,
+            settings.OLLAMA_BASE_URL,
+        )
+        return Ollama(
+            model=settings.OLLAMA_MODEL,
+            base_url=settings.OLLAMA_BASE_URL,
+            temperature=0.1,
+            request_timeout=120.0,
+        )
+
+    # ------------------------------------------------------------------
+    # OpenAI path (fallback)
+    # ------------------------------------------------------------------
+    from llama_index.llms.openai import OpenAI  # noqa: PLC0415
+
+    logger.info("LLM provider: OpenAI (model=%s)", settings.MODEL_NAME)
+    return OpenAI(
+        model=settings.MODEL_NAME,
+        temperature=0.1,
+        api_key=settings.OPENAI_API_KEY,
+    )
+
+
 class QueryEngineManager:
     """Manage query and chat engines."""
 
     def __init__(self, index: VectorStoreIndex):
         self.index = index
+        self._bm25_nodes_cache: Optional[List] = None
 
-        if settings.USE_OLLAMA:
-            self.llm = Ollama(
-                model=settings.OLLAMA_MODEL,
-                base_url=settings.OLLAMA_BASE_URL,
-                temperature=0.1,
-                request_timeout=120.0,
-            )
-        else:
-            from llama_index.llms.openai import OpenAI
-
-            self.llm = OpenAI(
-                model=settings.MODEL_NAME,
-                temperature=0.1,
-                api_key=settings.OPENAI_API_KEY,
-            )
+        self.llm = _build_llm()
 
         # Set global Settings.llm so response synthesizer uses it
         Settings.llm = self.llm
@@ -530,6 +564,99 @@ class QueryEngineManager:
         self.similarity_top_k = settings.SIMILARITY_TOP_K
         self.similarity_cutoff = settings.SIMILARITY_CUTOFF
         self.response_mode = settings.RESPONSE_MODE
+
+    def _get_nodes_for_bm25(self) -> List:
+        """Load all nodes from the vector store for BM25 index (cached after first call)."""
+        if self._bm25_nodes_cache is not None:
+            return self._bm25_nodes_cache
+
+        from llama_index.core.schema import TextNode
+
+        nodes: List = []
+
+        # Chroma path: fetch via collection.get()
+        vector_store = getattr(self.index, "_vector_store", None)
+        chroma_collection = getattr(vector_store, "_collection", None)
+        if chroma_collection is not None:
+            try:
+                result = chroma_collection.get(include=["documents", "metadatas"])
+                for doc_id, doc_text, metadata in zip(
+                    result["ids"], result["documents"], result["metadatas"]
+                ):
+                    if doc_text:
+                        nodes.append(
+                            TextNode(text=doc_text, id_=doc_id, metadata=metadata or {})
+                        )
+                logger.info("BM25: loaded %d nodes from Chroma", len(nodes))
+            except Exception as exc:
+                logger.warning("BM25: could not load Chroma nodes: %s", exc)
+        else:
+            # Fallback: SimpleVectorStore / FAISS — try in-memory docstore
+            docstore = getattr(self.index, "docstore", None)
+            if docstore and hasattr(docstore, "docs"):
+                nodes = list(docstore.docs.values())
+                logger.info("BM25: loaded %d nodes from docstore", len(nodes))
+
+        self._bm25_nodes_cache = nodes
+        return nodes
+
+    def _build_retriever(
+        self,
+        similarity_top_k: int,
+        metadata_filters: Optional[MetadataFilters],
+    ):
+        """Return a hybrid (BM25 + vector) retriever or fall back to vector-only."""
+        retriever_kwargs: Dict[str, Any] = {
+            "index": self.index,
+            "similarity_top_k": similarity_top_k,
+        }
+        if metadata_filters is not None and settings.VECTOR_STORE_TYPE == "chroma":
+            retriever_kwargs["filters"] = metadata_filters
+        elif metadata_filters is not None:
+            logger.debug(
+                "Skipping retriever-level metadata filters for VECTOR_STORE_TYPE=%s",
+                settings.VECTOR_STORE_TYPE,
+            )
+
+        vector_retriever = VectorIndexRetriever(**retriever_kwargs)
+
+        if not _env_flag("RAG_HYBRID_SEARCH", default=False):
+            return vector_retriever
+
+        try:
+            from llama_index.retrievers.bm25 import BM25Retriever
+            from llama_index.core.retrievers import QueryFusionRetriever
+
+            bm25_nodes = self._get_nodes_for_bm25()
+            if not bm25_nodes:
+                logger.warning("BM25: no nodes available, using vector-only retriever")
+                return vector_retriever
+
+            bm25_retriever = BM25Retriever.from_defaults(
+                nodes=bm25_nodes,
+                similarity_top_k=similarity_top_k,
+            )
+            logger.info(
+                "Hybrid search enabled: vector+BM25, top_k=%d, nodes=%d",
+                similarity_top_k,
+                len(bm25_nodes),
+            )
+            return QueryFusionRetriever(
+                retrievers=[vector_retriever, bm25_retriever],
+                similarity_top_k=similarity_top_k,
+                num_queries=1,
+                mode="reciprocal_rerank",
+                use_async=False,
+            )
+        except ImportError:
+            logger.warning(
+                "BM25 retriever not installed. "
+                "Run: pip install llama-index-retrievers-bm25"
+            )
+            return vector_retriever
+        except Exception as exc:
+            logger.warning("BM25 setup failed, using vector-only: %s", exc)
+            return vector_retriever
 
     def create_query_engine(
         self,
@@ -562,20 +689,7 @@ class QueryEngineManager:
             router_label,
         )
 
-        # Create retriever (metadata filters are pushed down for Chroma).
-        retriever_kwargs: Dict[str, Any] = {
-            "index": self.index,
-            "similarity_top_k": similarity_top_k,
-        }
-        if metadata_filters is not None and settings.VECTOR_STORE_TYPE == "chroma":
-            retriever_kwargs["filters"] = metadata_filters
-        elif metadata_filters is not None:
-            logger.debug(
-                "Skipping retriever-level metadata filters for VECTOR_STORE_TYPE=%s",
-                settings.VECTOR_STORE_TYPE,
-            )
-
-        retriever = VectorIndexRetriever(**retriever_kwargs)
+        retriever = self._build_retriever(similarity_top_k, metadata_filters)
 
         # Create response synthesizer
         response_synthesizer = get_response_synthesizer(
@@ -729,12 +843,6 @@ class QueryEngineManager:
                 nodes=strict_filtered_nodes,
                 router_label=router_label,
             )
-            validated_nodes, blocked_stage3 = _strict_route_filter(
-                question=question,
-                nodes=validated_nodes,
-                router_label=router_label,
-            )
-            domain_drift_blocked_count += blocked_stage3
             validated_nodes = _rerank_nodes(question, validated_nodes, router_label)
 
             if len(validated_nodes) < 2:

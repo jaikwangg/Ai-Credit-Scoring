@@ -5,6 +5,9 @@ llama-index-embeddings-openai
 llama-index-vector-stores-faiss
 llama-index-vector-stores-chroma
 
+# Future LLM providers (install when needed)
+# llama-index-llms-gemini   # Gemini 2 / 2.5 Flash — uncomment + pip install when USE_GEMINI=true
+
 # OpenAI & LLM
 openai
 tiktoken

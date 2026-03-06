@@ -1,0 +1,7 @@
+{
+  "prediction": 1,
+  "probabilities": {
+    "0": 0.12,
+    "1": 0.88
+  }
+}

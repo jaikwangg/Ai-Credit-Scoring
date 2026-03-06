@@ -6,6 +6,7 @@ import chromadb
 import httpx
 import requests
 from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
+from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.response_synthesizers import get_response_synthesizer
 from llama_index.core.retrievers import VectorIndexRetriever
@@ -134,6 +135,7 @@ def get_engine(top_k: int = 8):
     return RetrieverQueryEngine(
         retriever=retriever,
         response_synthesizer=synthesizer,
+        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=0.20)],
     )
 
 

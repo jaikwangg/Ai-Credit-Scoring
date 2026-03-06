@@ -1,0 +1,22 @@
+{"question": "อัตราดอกเบี้ยสินเชื่อบ้านปีแรกเท่าไหร่", "expected_route": "interest_structure", "expected_keywords": ["%", "ดอกเบี้ย"], "should_answer": true}
+{"question": "มี fixed rate หรือ floating rate บ้าง", "expected_route": "interest_structure", "expected_keywords": ["fixed", "floating", "ดอกเบี้ย"], "should_answer": true}
+{"question": "MRR คืออะไรและคำนวณอย่างไร", "expected_route": "interest_structure", "expected_keywords": ["mrr", "MRR", "ดอกเบี้ย"], "should_answer": true}
+{"question": "ดอกเบี้ยสินเชื่อบ้านหลังจากปีที่ 3 คิดอย่างไร", "expected_route": "interest_structure", "expected_keywords": ["%", "ดอกเบี้ย"], "should_answer": true}
+{"question": "ค่าธรรมเนียมจดจำนองคิดเท่าไหร่", "expected_route": "fee_structure", "expected_keywords": ["จดจำนอง", "ค่าธรรมเนียม"], "should_answer": true}
+{"question": "ค่าปรับปิดสินเชื่อก่อนกำหนดคิดอย่างไร", "expected_route": "fee_structure", "expected_keywords": ["ค่าปรับ", "ปิด"], "should_answer": true}
+{"question": "มีค่าใช้จ่ายอะไรบ้างในการทำสินเชื่อบ้าน", "expected_route": "fee_structure", "expected_keywords": ["ค่าธรรมเนียม", "ค่าใช้จ่าย"], "should_answer": true}
+{"question": "ค่าประเมินราคาหลักทรัพย์เท่าไหร่", "expected_route": "fee_structure", "expected_keywords": ["ค่า", "ประเมิน"], "should_answer": true}
+{"question": "ต้องใช้เอกสารอะไรบ้างในการสมัครสินเชื่อบ้าน", "expected_route": "policy_requirement", "expected_keywords": ["เอกสาร"], "should_answer": true}
+{"question": "คุณสมบัติผู้กู้สินเชื่อบ้านมีอะไรบ้าง", "expected_route": "policy_requirement", "expected_keywords": ["คุณสมบัติ"], "should_answer": true}
+{"question": "รายได้ขั้นต่ำในการขอสินเชื่อบ้านคือเท่าไหร่", "expected_route": "policy_requirement", "expected_keywords": ["รายได้"], "should_answer": true}
+{"question": "ต้องมีคุณสมบัติอย่างไรถึงจะกู้บ้านได้", "expected_route": "policy_requirement", "expected_keywords": ["คุณสมบัติ", "เงื่อนไข"], "should_answer": true}
+{"question": "รีไฟแนนซ์บ้านกับ CIMB ทำได้ไหมมีเงื่อนไขอะไรบ้าง", "expected_route": "refinance", "expected_keywords": ["รีไฟแนนซ์"], "should_answer": true}
+{"question": "บ้านแลกเงินคืออะไร", "expected_route": "refinance", "expected_keywords": ["บ้านแลกเงิน", "สินเชื่อ"], "should_answer": true}
+{"question": "mortgage power ของ CIMB มีเงื่อนไขอย่างไร", "expected_route": "refinance", "expected_keywords": ["สินเชื่อ", "บ้าน"], "should_answer": true}
+{"question": "ถ้าผ่อนไม่ไหวต้องทำอย่างไร", "expected_route": "hardship_support", "expected_keywords": ["มาตรการ", "ปรับโครงสร้าง", "พักชำระ"], "should_answer": true}
+{"question": "มีมาตรการช่วยเหลือลูกหนี้ที่ได้รับผลกระทบจากโควิดไหม", "expected_route": "hardship_support", "expected_keywords": ["มาตรการ", "ช่วยเหลือ"], "should_answer": true}
+{"question": "ขอพักชำระหนี้ได้ไหมต้องทำอย่างไร", "expected_route": "hardship_support", "expected_keywords": ["พักชำระ", "มาตรการ"], "should_answer": true}
+{"question": "สมัครบัตรเครดิต CIMB ต้องใช้เอกสารอะไร", "expected_route": "general_info", "expected_keywords": [], "should_answer": false}
+{"question": "อัตราแลกเปลี่ยนเงินดอลลาร์วันนี้เท่าไหร่", "expected_route": "general_info", "expected_keywords": [], "should_answer": false}
+{"question": "วิธีโอนเงินพร้อมเพย์ผ่านแอป CIMB", "expected_route": "general_info", "expected_keywords": [], "should_answer": false}
+{"question": "ภาษีที่ดินและสิ่งปลูกสร้างคำนวณอย่างไร", "expected_route": "general_info", "expected_keywords": [], "should_answer": false}

@@ -1,0 +1,14 @@
+{
+  "Sex": "M",
+  "Occupation": "Employee",
+  "Salary": 45000.0,
+  "Marriage_Status": "Single",
+  "credit_score": 640.0,
+  "credit_grade": "B",
+  "outstanding": 300000.0,
+  "overdue": 15000.0,
+  "Coapplicant": false,
+  "loan_amount": 2500000.0,
+  "loan_term": 25.0,
+  "Interest_rate": 5.9
+}

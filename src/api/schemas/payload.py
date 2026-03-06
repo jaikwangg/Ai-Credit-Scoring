@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, conint, condecimal, validator
 
 # -----------------------------------
@@ -41,8 +41,15 @@ class ModelExplanations(BaseModel):
     is_thin_file: bool = Field(False, description="True if no historical DB data was found.")
     tree_shap_values: Dict[str, float] = Field(default_factory=dict, description="SHAP feature attributions.")
 
+class PlannerAdvice(BaseModel):
+    mode: str = Field("", description="'approved_guidance' or 'improvement_plan'")
+    result_th: str = Field("", description="Thai-language plan or approval checklist.")
+    rag_sources: List[Dict[str, Any]] = Field(default_factory=list, description="RAG evidence used in advice.")
+
+
 class ScoringResponse(BaseModel):
     request_id: str = Field(..., description="Echoes the request trace ID.")
     approved: bool = Field(..., description="Binary classification result (approve/reject).")
     probability_score: float = Field(..., description="Continuous probability score [0.0 - 1.0].")
     explanations: ModelExplanations
+    advice: Optional[PlannerAdvice] = Field(None, description="Thai-language advice from planner+RAG.")

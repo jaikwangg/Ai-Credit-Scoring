@@ -1,0 +1,17 @@
+{
+  "base_value": 0.5,
+  "values": {
+    "Salary": 0.18,
+    "outstanding": -0.35,
+    "overdue": -0.22,
+    "loan_amount": -0.15,
+    "loan_term": -0.05,
+    "Interest_rate": -0.03,
+    "credit_score": -0.1,
+    "credit_grade": -0.02,
+    "Occupation": 0.01,
+    "Coapplicant": 0.01,
+    "Marriage_Status": 0.0,
+    "Sex": -0.01
+  }
+}

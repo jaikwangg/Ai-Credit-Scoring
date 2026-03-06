@@ -14,14 +14,24 @@ class Settings:
     
     # API Keys
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    
-    # Ollama Settings
+
+    # Ollama Settings (local, default)
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3:8b")
     USE_OLLAMA: bool = os.getenv("USE_OLLAMA", "true").lower() == "true"
-    
-    # Model Settings
+
+    # OpenAI Settings
     MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+
+    # ---------------------------------------------------------------------------
+    # Gemini Settings (future migration — not active until USE_GEMINI=true)
+    # To enable: set USE_GEMINI=true, GEMINI_API_KEY=<your-key> in .env
+    # Recommended model: gemini-2.0-flash  or  gemini-2.5-flash-preview-04-17
+    # Required package:  pip install llama-index-llms-gemini
+    # ---------------------------------------------------------------------------
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    USE_GEMINI: bool = os.getenv("USE_GEMINI", "false").lower() == "true"
     # BGE-M3 for Thai/multilingual embeddings (1024 dim)
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", os.getenv("EMBED_MODEL", "BAAI/bge-m3"))
     
@@ -58,8 +68,10 @@ class Settings:
     @classmethod
     def validate(cls) -> bool:
         """Validate required settings"""
-        if not cls.USE_OLLAMA and not cls.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY is required when not using Ollama. Please set it in your .env file or set USE_OLLAMA=true.")
+        if cls.USE_GEMINI and not cls.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is required when USE_GEMINI=true.")
+        if not cls.USE_OLLAMA and not cls.USE_GEMINI and not cls.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY is required when not using Ollama or Gemini.")
         return True
     
     @classmethod

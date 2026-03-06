@@ -24,14 +24,22 @@ class FeatureMergerService:
             return {
                 "historical_defaults": 0,
                 "credit_bureau_score": 750,
+                "credit_grade": "AA",
+                "outstanding": 0.0,
+                "overdue_amount": 0.0,
+                "has_coapplicant": False,
                 "is_thin_file": False,
-                "months_since_last_delinquency": 36
+                "months_since_last_delinquency": 36,
             }
         else:
             # Impute for thin file
             return {
-                "historical_defaults": -1, # Unknown
-                "credit_bureau_score": 600, # Median default
+                "historical_defaults": -1,   # Unknown
+                "credit_bureau_score": 600,  # Median default
+                "credit_grade": "CC",        # Median grade imputed
+                "outstanding": 0.0,
+                "overdue_amount": 0.0,
+                "has_coapplicant": False,
                 "is_thin_file": True,
-                "months_since_last_delinquency": -1
+                "months_since_last_delinquency": -1,
             }
