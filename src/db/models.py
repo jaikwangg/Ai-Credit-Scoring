@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime
 from src.db.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 class CreditScoreResult(Base):
     __tablename__ = "credit_score_results"
@@ -14,7 +14,7 @@ class CreditScoreResult(Base):
     probability_score = Column(Float)
     is_thin_file = Column(Boolean)
     
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -24,4 +24,4 @@ class AuditLog(Base):
     customer_id = Column(String, index=True)
     action = Column(String) # e.g., 'SCORE_REQUESTED', 'DECISION_MADE'
     details = Column(String) # JSON payload stringified
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

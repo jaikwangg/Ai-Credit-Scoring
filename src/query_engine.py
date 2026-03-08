@@ -503,18 +503,18 @@ def _build_llm():
 
     Priority: USE_GEMINI > USE_OLLAMA > OpenAI
 
-    To migrate to Gemini 2/2.5 Flash, set USE_GEMINI=true and GEMINI_API_KEY in .env.
-    Required package: pip install llama-index-llms-gemini
+    To use Gemini: set USE_GEMINI=true and GEMINI_API_KEY in .env.
+    Package: llama-index-llms-google-genai (uses google-genai SDK)
+    Supported models: gemini-2.0-flash, gemini-2.0-flash-lite, gemini-2.5-flash-preview-04-17
     """
     if settings.USE_GEMINI:
         # ------------------------------------------------------------------
-        # Gemini path (activate with USE_GEMINI=true in .env)
-        # Supports: gemini-2.0-flash, gemini-2.5-flash-preview-04-17
+        # Gemini path — uses google-genai SDK (non-deprecated)
         # ------------------------------------------------------------------
-        from llama_index.llms.gemini import Gemini  # noqa: PLC0415
+        from llama_index.llms.google_genai import GoogleGenAI  # noqa: PLC0415
 
-        logger.info("LLM provider: Gemini (model=%s)", settings.GEMINI_MODEL)
-        return Gemini(
+        logger.info("LLM provider: Gemini/GoogleGenAI (model=%s)", settings.GEMINI_MODEL)
+        return GoogleGenAI(
             model=settings.GEMINI_MODEL,
             api_key=settings.GEMINI_API_KEY,
             temperature=0.1,

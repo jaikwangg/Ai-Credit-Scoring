@@ -40,6 +40,14 @@ ROUTE_PRIORITY = [
     "policy_requirement",
 ]
 
+# Queries containing these terms are off-domain / adversarial — force general_info
+# so the validator returns NO_ANSWER instead of leaking policy docs.
+SAFETY_BLOCKLIST: List[str] = [
+    "ปลอมแปลง", "ปลอม", "ทุจริต", "ฉ้อโกง", "แอบอ้าง", "โกง",
+    "หลบเลี่ยง", "เลี่ยง", "ซ่อน", "ซ่อนเงิน", "ฟอกเงิน",
+    "forgery", "fraud", "fake", "falsify", "launder",
+]
+
 
 def _contains_any(text: str, terms: Iterable[str]) -> bool:
     return any(term in text for term in terms)
@@ -115,6 +123,11 @@ Question: {question}
 
 def route_query(question: str) -> str:
     """Route a question to one domain label using rules first, LLM optional fallback."""
+    text = (question or "").lower()
+    if _contains_any(text, SAFETY_BLOCKLIST):
+        logger.debug("Safety blocklist matched — routing to general_info: %r", question)
+        return "general_info"
+
     routed = _route_by_keywords(question)
     if routed:
         return routed

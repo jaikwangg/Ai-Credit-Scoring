@@ -56,6 +56,9 @@ class Settings:
     SIMILARITY_CUTOFF: float = float(os.getenv("SIMILARITY_CUTOFF", "0.45"))
     RESPONSE_MODE: str = os.getenv("RESPONSE_MODE", "compact")
 
+    # Database
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
+
     # Ingestion safety
     # True => rebuild Chroma collection on ingest to avoid stale/mixed nodes
     RESET_CHROMA_COLLECTION_ON_INGEST: bool = (

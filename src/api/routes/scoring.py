@@ -2,22 +2,25 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
-from src.api.schemas.payload import ScoringRequest, ScoringResponse, ModelExplanations, PlannerAdvice
+from src.api.schemas.payload import (
+    ScoringRequest, ScoringResponse, ModelExplanations, PlannerAdvice,
+    ExternalPlanRequest, ExternalPlanResponse,
+)
 from src.db.database import get_db
 from src.db import models
 from src.services.feature_merger import FeatureMergerService
 from src.services.model_runner import ModelRunnerService
 from src.planner.planning import generate_response
-from src.planner.rag_bridge import build_shap_json, build_user_input, get_rag_manager, make_rag_lookup
+from src.planner.rag_bridge import build_shap_json, build_user_input, extract_rag_sources, get_rag_manager, make_rag_lookup
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 async def _audit_log_async(payload: dict):
     # Simulates pushing payload to a Kafka Topic or Elasticsearch
-    logger.info(f"[AUDIT LOG] Logged payload for request {payload.get('request_id')} at {datetime.utcnow().isoformat()}")
+    logger.info(f"[AUDIT LOG] Logged payload for request {payload.get('request_id')} at {datetime.now(timezone.utc).isoformat()}")
 
 @router.post("/score/request", response_model=ScoringResponse)
 async def request_credit_score(
@@ -61,9 +64,7 @@ async def request_credit_score(
             shap_json = build_shap_json(model_result["shap_values"])
             plan_result = generate_response(user_input, model_output, shap_json, rag_lookup=rag_lookup)
 
-            rag_sources = []
-            for action in plan_result.get("plan", {}).get("actions", []) if "plan" in plan_result else []:
-                rag_sources.extend(action.get("evidence", []) or [])
+            rag_sources = extract_rag_sources(plan_result)
 
             advice = PlannerAdvice(
                 mode=plan_result.get("mode", ""),
@@ -126,3 +127,59 @@ async def request_credit_score(
         logger.error(f"Error processing scoring request {payload.request_id}: {str(e)}")
         # DLQ logic would go here
         raise HTTPException(status_code=500, detail="Internal Server Error during scoring.")
+
+
+@router.post("/plan/external", response_model=ExternalPlanResponse)
+async def plan_from_external_model(payload: ExternalPlanRequest):
+    """
+    Bring-your-own-model planning endpoint.
+
+    Accepts user features + model output + SHAP values from an external ML model
+    (e.g. XGBoost, LightGBM) and returns a Thai-language improvement plan.
+
+    Bypasses internal FeatureMergerService and ModelRunnerService entirely.
+
+    SHAP sign convention (approval-probability):
+      negative = feature HURTS approval chance  → becomes an action item
+      positive = feature HELPS approval chance  → listed as strength
+    """
+    logger.info("External plan request: %s", payload.request_id)
+
+    try:
+        manager = get_rag_manager()
+        rag_lookup = make_rag_lookup(manager.query) if manager else None
+
+        user_input_dict = payload.user_input.model_dump()
+        model_output_dict = {
+            "prediction": payload.model_output.prediction,
+            "probabilities": payload.model_output.probabilities,
+        }
+        shap_json_dict = {
+            "base_value": payload.shap_json.base_value,
+            "values": payload.shap_json.values,
+        }
+
+        plan_result = generate_response(
+            user_input=user_input_dict,
+            model_output=model_output_dict,
+            shap_json=shap_json_dict,
+            rag_lookup=rag_lookup,
+        )
+
+        rag_sources = extract_rag_sources(plan_result)
+
+        decision = plan_result.get("decision", {})
+
+        return ExternalPlanResponse(
+            request_id=payload.request_id,
+            mode=plan_result.get("mode", ""),
+            approved=decision.get("approved", False),
+            p_approve=decision.get("p_approve", 0.0),
+            p_reject=decision.get("p_reject", 0.0),
+            result_th=plan_result.get("result_th", ""),
+            rag_sources=rag_sources,
+        )
+
+    except Exception as e:
+        logger.error("External plan request %s failed: %s", payload.request_id, str(e))
+        raise HTTPException(status_code=500, detail="Internal Server Error during planning.")

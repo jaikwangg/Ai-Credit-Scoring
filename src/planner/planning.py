@@ -196,7 +196,7 @@ def _driver_action_template(feature: str) -> Tuple[str, str]:
     if feature in {"overdue", "outstanding"}:
         return (
             "จัดการหนี้ค้างและวางแผนปรับโครงสร้างภาระหนี้",
-            "ชำระยอดค้างให้เป็นปัจจุบันก่อน และหากยังตึงตัวให้ติดต่อธนาคารเพื่อพิจารณาทางเลือกปรับโครงสร้างหรือขยายงวดอย่างเป็นทางการ.",
+            "ชำระยอดค้างให้เป็นปัจจุบันก่อน และหากยังตึงตัวให้ติดต่อสถาบันการเงินเพื่อพิจารณาทางเลือกปรับโครงสร้างหรือขยายงวดอย่างเป็นทางการ.",
         )
     if feature in {"loan_amount", "loan_term"}:
         return (
@@ -398,8 +398,8 @@ def generate_plan(
         "actions": actions,
         "clarifying_questions": clarifying_questions,
         "disclaimer_th": (
-            "คำแนะนำนี้เป็นข้อเสนอเชิงข้อมูลจากแบบจำลองและเอกสารที่ค้นพบ "
-            "ไม่สามารถรับประกันผลอนุมัติ และควรตรวจสอบเงื่อนไขล่าสุดกับธนาคาร"
+            "ผลลัพธ์นี้จัดทำโดยแบบจำลองทางสถิติเพื่อวัตถุประสงค์ทางการวิจัย "
+            "มิใช่การพิจารณาสินเชื่อจริงจากสถาบันการเงิน"
         ),
     }
     _assert_actions_safe(plan["actions"])
@@ -570,17 +570,17 @@ def render_plan_th(plan_json: dict, style: str = "paragraph") -> str:
     medium_actions = _pick_groups(merged_actions, ["credit_behavior", "other"])
 
     lines: List[str] = []
-    lines.append("สรุปสั้น")
-    lines.append(f"- สถานะปัจจุบัน: {'มีแนวโน้มอนุมัติ' if approved else 'ยังมีความเสี่ยงไม่อนุมัติ'} (อนุมัติ {p_approve:.3f} | ไม่อนุมัติ {p_reject:.3f})")
+    lines.append("สรุปผลการวิเคราะห์")
+    lines.append(f"- ผลการประเมินของแบบจำลอง: {'ความน่าจะเป็นอนุมัติสูง' if approved else 'ความน่าจะเป็นปฏิเสธสูง'} (P(อนุมัติ)={p_approve:.3f} | P(ปฏิเสธ)={p_reject:.3f})")
     if top3_text:
-        lines.append(f"- ปัจจัยกดผลลัพธ์หลัก: {top3_text}")
-    lines.append("- แนวทางรวม: ลดความเสี่ยงเร่งด่วนก่อน แล้วค่อยปรับโครงสร้างคำขอและวินัยเครดิตต่อเนื่อง")
+        lines.append(f"- ตัวแปรที่มีผลลดโอกาสอนุมัติ (SHAP เชิงลบ): {top3_text}")
+    lines.append("- แนวทางปรับปรุง: บรรเทาตัวแปรความเสี่ยงเร่งด่วนก่อน จากนั้นปรับโครงสร้างคำขอและพฤติกรรมการชำระหนี้ต่อเนื่อง")
 
     lines.append("")
     if style == "paragraph":
         para1 = (
-            f"ภาพรวมการประเมินตอนนี้ {'มีแนวโน้มอนุมัติ' if approved else 'ยังมีความเสี่ยงไม่อนุมัติ'} "
-            f"โดยตัวขับหลักคือ {top3_text or 'ภาระหนี้และความพร้อมเอกสาร'} จึงควรปรับแผนแบบเป็นลำดับ."
+            f"ผลการวิเคราะห์ของแบบจำลองระบุว่า {'ความน่าจะเป็นอนุมัติสูง' if approved else 'ความน่าจะเป็นปฏิเสธสูง'} "
+            f"โดยตัวแปรหลักที่ส่งผลต่อการตัดสินใจคือ {top3_text or 'ภาระหนี้และความพร้อมด้านเอกสาร'} จึงควรดำเนินมาตรการปรับปรุงตามลำดับ."
         )
         para2 = (
             f"ระยะทันทีให้โฟกัส {', '.join(_action_brief(a) for a in immediate_actions) or 'การเคลียร์ภาระหนี้เร่งด่วนและเอกสารรายได้'}. "
@@ -591,14 +591,14 @@ def render_plan_th(plan_json: dict, style: str = "paragraph") -> str:
         lines.append(para2)
 
     elif style == "123":
-        lines.append("1) ทำทันที: " + ("; ".join(_action_brief(a) for a in immediate_actions) or "เคลียร์ภาระหนี้เร่งด่วนและจัดเอกสารรายได้ให้ครบ"))
-        lines.append("2) ภายใน 1-3 เดือน: " + ("; ".join(_action_brief(a) for a in short_actions) or "ปรับโครงสร้างวงเงิน/ระยะเวลากู้ และเทียบทางเลือกดอกเบี้ย"))
-        lines.append("3) ภายใน 3-6 เดือน: " + ("; ".join(_action_brief(a) for a in medium_actions) or "รักษาวินัยเครดิตและติดตามผลก่อนยื่นใหม่"))
+        lines.append("1) มาตรการเร่งด่วน: " + ("; ".join(_action_brief(a) for a in immediate_actions) or "บรรเทาภาระหนี้เร่งด่วนและจัดเตรียมหลักฐานรายได้ให้ครบถ้วน"))
+        lines.append("2) มาตรการระยะสั้น (1-3 เดือน): " + ("; ".join(_action_brief(a) for a in short_actions) or "ปรับโครงสร้างวงเงิน/ระยะเวลากู้ และเปรียบเทียบทางเลือกอัตราดอกเบี้ย"))
+        lines.append("3) มาตรการระยะกลาง (3-6 เดือน): " + ("; ".join(_action_brief(a) for a in medium_actions) or "ฟื้นฟูวินัยการชำระหนี้และติดตามผลก่อนยื่นขอใหม่"))
 
     else:  # ABC
-        lines.append("แผน A (ลดความเสี่ยงเร่งด่วน): " + ("; ".join(_action_brief(a) for a in immediate_actions) or "จัดการภาระหนี้เร่งด่วนและเอกสารรายได้"))
-        lines.append("แผน B (ปรับโครงสร้างคำขอ): " + ("; ".join(_action_brief(a) for a in short_actions) or "ปรับวงเงิน/ระยะเวลากู้และโครงสร้างดอกเบี้ย"))
-        lines.append("แผน C (ฟื้นเครดิตระยะกลาง): " + ("; ".join(_action_brief(a) for a in medium_actions) or "รักษาวินัยเครดิตและประเมินซ้ำ"))
+        lines.append("มาตรการ A (บรรเทาความเสี่ยงเร่งด่วน): " + ("; ".join(_action_brief(a) for a in immediate_actions) or "จัดการภาระหนี้เร่งด่วนและหลักฐานรายได้"))
+        lines.append("มาตรการ B (ปรับโครงสร้างคำขอสินเชื่อ): " + ("; ".join(_action_brief(a) for a in short_actions) or "ปรับวงเงิน/ระยะเวลากู้และโครงสร้างอัตราดอกเบี้ย"))
+        lines.append("มาตรการ C (ฟื้นฟูพฤติกรรมเครดิตระยะกลาง): " + ("; ".join(_action_brief(a) for a in medium_actions) or "รักษาวินัยการชำระหนี้และประเมินซ้ำ"))
 
     clarifying = plan.get("clarifying_questions", []) or []
     if clarifying:
@@ -627,9 +627,9 @@ def _build_approved_checklist(
     p_reject = _to_float(decision.get("p_reject"), default=0.0) or 0.0
 
     lines: List[str] = []
-    lines.append("ผลประเมินเบื้องต้น: มีแนวโน้มอนุมัติ")
-    lines.append(f"ความน่าจะเป็นอนุมัติ {p_approve:.3f} | ไม่อนุมัติ {p_reject:.3f}")
-    lines.append("เช็กลิสต์เตรียมยื่นสมัคร")
+    lines.append("ผลการวิเคราะห์ของแบบจำลอง: ความน่าจะเป็นอนุมัติสูง")
+    lines.append(f"P(อนุมัติ)={p_approve:.3f} | P(ปฏิเสธ)={p_reject:.3f}")
+    lines.append("รายการเอกสาร/ข้อมูลที่จำเป็นสำหรับการยื่นขอสินเชื่อ")
 
     for idx, (title, query) in enumerate(APPROVED_CHECKLIST_QUERIES, start=1):
         answer, evidence = _rag_fetch(rag_lookup, query)
@@ -642,8 +642,155 @@ def _build_approved_checklist(
             line += f" (แหล่งข้อมูล: {evidence[0].get('source_title', 'N/A')})"
         lines.append(line)
 
-    lines.append("หมายเหตุ: ควรตรวจสอบเงื่อนไขล่าสุดกับธนาคารอีกครั้งก่อนยื่นจริง")
+    lines.append("หมายเหตุ: ผลลัพธ์นี้จัดทำโดยแบบจำลองทางสถิติเพื่อวัตถุประสงค์ทางการวิจัย มิใช่การพิจารณาสินเชื่อจริงจากสถาบันการเงิน")
     return _normalize_whitespace("\n".join(lines))
+
+
+def _llm_synthesize_plan(plan: dict, user_input: dict) -> str:
+    """
+    Use the configured LLM (Gemini/Ollama/OpenAI via Settings.llm) to synthesize
+    a formal, case-specific Thai improvement plan from the structured plan data.
+    Returns empty string on failure so caller can fall back to rule-based rendering.
+    """
+    try:
+        from llama_index.core.settings import Settings  # noqa: PLC0415
+        llm = getattr(Settings, "llm", None)
+        if llm is None:
+            return ""
+    except Exception:
+        return ""
+
+    decision = plan.get("decision", {})
+    p_approve = float(decision.get("p_approve", 0.0))
+    p_reject = float(decision.get("p_reject", 0.0))
+
+    risk_drivers = plan.get("risk_drivers", {})
+    top_neg = risk_drivers.get("top_negative", []) or []
+    top_pos = risk_drivers.get("top_positive", []) or []
+    actions = plan.get("actions", []) or []
+    clarifying = plan.get("clarifying_questions", []) or []
+
+    # --- user profile summary ---
+    salary = float(user_input.get("Salary") or 0)
+    occupation = str(user_input.get("Occupation") or "ไม่ระบุ")
+    credit_score = user_input.get("credit_score", "ไม่ระบุ")
+    credit_grade = user_input.get("credit_grade", "ไม่ระบุ")
+    outstanding = float(user_input.get("outstanding") or 0)
+    overdue = user_input.get("overdue", 0)
+    loan_amount = float(user_input.get("loan_amount") or 0)
+    loan_term = user_input.get("loan_term", "ไม่ระบุ")
+    coapplicant = "มี" if user_input.get("Coapplicant") else "ไม่มี"
+
+    # --- build actions block for prompt ---
+    actions_block_lines: List[str] = []
+    for i, a in enumerate(actions, 1):
+        title = a.get("title_th", "")
+        how = a.get("how_th", "")
+        evidence_list = a.get("evidence") or []
+        ev_note = ""
+        if evidence_list and isinstance(evidence_list[0], dict):
+            ans = str(evidence_list[0].get("answer", "")).strip()
+            src = str(evidence_list[0].get("source_title", "")).strip()
+            if ans and ans != NO_ANSWER_SENTINEL:
+                ev_note = f"\n   หลักฐานเอกสาร: {_trim_text(ans, 150)}"
+                if src:
+                    ev_note += f" (ที่มา: {src})"
+        actions_block_lines.append(f"{i}. {title}\n   วิธีดำเนินการ: {how}{ev_note}")
+
+    actions_block = "\n".join(actions_block_lines)
+
+    neg_drivers = ", ".join(
+        f"{d.get('label_th', '?')} (SHAP {d.get('shap', 0):+.2f})" for d in top_neg[:4]
+    )
+    pos_drivers = (
+        ", ".join(f"{d.get('label_th', '?')} (SHAP {d.get('shap', 0):+.2f})" for d in top_pos[:2])
+        or "ไม่มี"
+    )
+    clarifying_block = (
+        "\n".join(f"- {q}" for q in clarifying) if clarifying else "ไม่มี"
+    )
+
+    prompt = f"""คุณเป็นระบบวิเคราะห์สินเชื่อด้วยปัญญาประดิษฐ์ (AI Credit Scoring System) ที่พัฒนาขึ้นเพื่องานวิจัยวิทยานิพนธ์
+โปรดเขียนรายงานผลการวิเคราะห์และข้อเสนอแนะการปรับปรุงโปรไฟล์สินเชื่อ เป็นภาษาไทยทางการ ชัดเจน เหมาะสำหรับบริบทงานวิจัยวิทยานิพนธ์
+
+=== ข้อมูลผู้ขอสินเชื่อ ===
+- รายได้/เดือน: {salary:,.0f} บาท | อาชีพ: {occupation}
+- คะแนนเครดิต: {credit_score} | เกรด: {credit_grade}
+- หนี้คงค้าง: {outstanding:,.0f} บาท | ค้างชำระ: {overdue} วัน
+- วงเงินขอกู้: {loan_amount:,.0f} บาท | ระยะเวลา: {loan_term} ปี | ผู้กู้ร่วม: {coapplicant}
+
+=== ผลการวิเคราะห์ของแบบจำลอง ===
+- ความน่าจะเป็นอนุมัติ: {p_approve:.1%} | ความน่าจะเป็นปฏิเสธ: {p_reject:.1%}
+- ตัวแปรที่มีผลลดโอกาสอนุมัติ (SHAP เชิงลบ): {neg_drivers}
+- ตัวแปรที่มีผลเพิ่มโอกาสอนุมัติ (SHAP เชิงบวก): {pos_drivers}
+
+=== มาตรการปรับปรุงโปรไฟล์ที่แบบจำลองวิเคราะห์ ===
+{actions_block}
+
+=== ข้อมูลที่ยังไม่ครบถ้วนสำหรับการวิเคราะห์ ===
+{clarifying_block}
+
+=== คำสั่ง ===
+โปรดเขียนรายงานให้:
+1. ขึ้นต้นด้วยย่อหน้าสรุปผลการวิเคราะห์ (2-3 ประโยค) ระบุความน่าจะเป็นในการอนุมัติและตัวแปรหลักที่ส่งผลต่อการตัดสินใจของแบบจำลอง
+2. ระบุมาตรการปรับปรุงแต่ละข้อในรูปแบบ "มาตรการที่ N: [ชื่อมาตรการ]" พร้อมอธิบายเหตุผลเชิงวิเคราะห์และแนวทางปฏิบัติที่เป็นรูปธรรม หากมีหลักฐานจากเอกสารอ้างอิงให้ระบุแหล่งที่มาด้วย
+3. ปิดด้วยย่อหน้าสรุปภาพรวมเชิงวิเคราะห์ที่ระบุลำดับความสำคัญของมาตรการ
+4. ท้ายสุดใส่ข้อความ: "หมายเหตุ: ผลลัพธ์นี้จัดทำโดยแบบจำลองทางสถิติเพื่อวัตถุประสงค์ทางการวิจัย มิใช่การพิจารณาสินเชื่อจริงจากสถาบันการเงิน"
+
+ข้อห้ามเด็ดขาด: ห้ามรับประกันการอนุมัติ ห้ามแนะนำปลอมแปลงเอกสาร ห้ามให้ข้อมูลเท็จ ห้ามสัญญาผล"""
+
+    try:
+        response = llm.complete(prompt)
+        text = _normalize_whitespace(str(response).strip())
+        if len(text) < 150:
+            return ""
+        # Safety check — reject if forbidden tokens appear
+        if _contains_forbidden(text, FORBIDDEN_FRAUD_TOKENS + FORBIDDEN_PROMISE_TOKENS):
+            return ""
+        return text
+    except Exception:
+        return ""
+
+
+def _llm_synthesize_approved(decision: dict, checklist_text: str, user_input: dict) -> str:
+    """Use LLM to write a formal Thai approval guidance report."""
+    try:
+        from llama_index.core.settings import Settings  # noqa: PLC0415
+        llm = getattr(Settings, "llm", None)
+        if llm is None:
+            return ""
+    except Exception:
+        return ""
+
+    p_approve = float(decision.get("p_approve", 0.0))
+    salary = float(user_input.get("Salary") or 0)
+    loan_amount = float(user_input.get("loan_amount") or 0)
+
+    prompt = f"""คุณเป็นระบบวิเคราะห์สินเชื่อด้วยปัญญาประดิษฐ์ (AI Credit Scoring System) ที่พัฒนาขึ้นเพื่องานวิจัยวิทยานิพนธ์
+ผู้ขอสินเชื่อรายนี้มีความน่าจะเป็นในการอนุมัติสูงตามผลการวิเคราะห์ของแบบจำลอง (ความน่าจะเป็น {p_approve:.1%})
+รายได้: {salary:,.0f} บาท/เดือน | วงเงินขอกู้: {loan_amount:,.0f} บาท
+
+ผลการค้นหาข้อมูลเอกสารอ้างอิงที่เกี่ยวข้อง:
+{checklist_text}
+
+โปรดเขียนรายงานผลการวิเคราะห์เป็นภาษาไทยทางการ:
+1. เริ่มด้วยการสรุปผลการวิเคราะห์ของแบบจำลองพร้อมระบุข้อจำกัดของผลลัพธ์ (2 ประโยค)
+2. สรุปรายการเอกสาร/ข้อมูลที่จำเป็นสำหรับการยื่นขอสินเชื่อในรูปแบบที่ชัดเจน
+3. ปิดด้วยข้อสังเกตเชิงวิเคราะห์เกี่ยวกับโปรไฟล์สินเชื่อและข้อเสนอแนะเพิ่มเติม
+4. ใส่ข้อความ: "หมายเหตุ: ผลลัพธ์นี้จัดทำโดยแบบจำลองทางสถิติเพื่อวัตถุประสงค์ทางการวิจัย มิใช่การพิจารณาสินเชื่อจริงจากสถาบันการเงิน"
+
+ห้ามรับประกันการอนุมัติเด็ดขาด"""
+
+    try:
+        response = llm.complete(prompt)
+        text = _normalize_whitespace(str(response).strip())
+        if len(text) < 100:
+            return ""
+        if _contains_forbidden(text, FORBIDDEN_PROMISE_TOKENS):
+            return ""
+        return text
+    except Exception:
+        return ""
 
 
 def generate_response(
@@ -655,7 +802,8 @@ def generate_response(
     decision = parse_model_output(model_output)
 
     if decision["approved"]:
-        result_th = _build_approved_checklist(decision, rag_lookup)
+        checklist_text = _build_approved_checklist(decision, rag_lookup)
+        result_th = _llm_synthesize_approved(decision, checklist_text, user_input) or checklist_text
         return {
             "mode": "approved_guidance",
             "decision": decision,
@@ -668,9 +816,10 @@ def generate_response(
         shap_json=shap_json,
         rag_lookup=rag_lookup,
     )
+    result_th = _llm_synthesize_plan(plan, user_input) or render_plan_th(plan, style="123")
     return {
         "mode": "improvement_plan",
         "decision": decision,
-        "result_th": render_plan_th(plan, style="123"),
+        "result_th": result_th,
         "plan": plan,
     }

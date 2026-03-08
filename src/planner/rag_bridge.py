@@ -12,6 +12,14 @@ logger = logging.getLogger(__name__)
 # Interface adapter
 # ---------------------------------------------------------------------------
 
+def extract_rag_sources(plan_result: Dict[str, Any]) -> list:
+    """Extract RAG evidence sources from a planner result dict."""
+    sources = []
+    for action in plan_result.get("plan", {}).get("actions", []) if "plan" in plan_result else []:
+        sources.extend(action.get("evidence", []) or [])
+    return sources
+
+
 def make_rag_lookup(query_fn: Callable[[str], Dict[str, Any]]) -> Callable[[str], dict]:
     """
     Wrap QueryEngineManager.query() into the planner's rag_lookup signature.
@@ -80,6 +88,7 @@ def build_shap_json(shap_values: Dict[str, float], base_value: float = 0.5) -> d
 
 _manager_lock = threading.Lock()
 _manager: Optional[Any] = None
+_UNAVAILABLE = object()  # sentinel: marks a failed init so we don't retry every request
 
 
 def get_rag_manager() -> Optional[Any]:
@@ -89,11 +98,11 @@ def get_rag_manager() -> Optional[Any]:
     """
     global _manager
     if _manager is not None:
-        return _manager
+        return None if _manager is _UNAVAILABLE else _manager
 
     with _manager_lock:
         if _manager is not None:
-            return _manager
+            return None if _manager is _UNAVAILABLE else _manager
         try:
             import chromadb
             from llama_index.core import VectorStoreIndex
@@ -116,6 +125,6 @@ def get_rag_manager() -> Optional[Any]:
             logger.info("RAG manager initialised (collection=%s)", cfg.CHROMA_COLLECTION)
         except Exception as exc:
             logger.warning("RAG manager unavailable — planner will run without RAG: %s", exc)
-            _manager = None
+            _manager = _UNAVAILABLE
 
     return _manager

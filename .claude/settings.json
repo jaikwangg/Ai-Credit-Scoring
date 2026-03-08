@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python -c \":*)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_planning_engine.py tests/test_scoring_api.py tests/test_document_parser_cleaning.py tests/test_document_parser_metadata.py -v --tb=short)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_planning_engine.py tests/test_document_parser_cleaning.py tests/test_document_parser_metadata.py tests/test_planner_quality.py -v --tb=short)",
+      "Bash(.venv/Scripts/python -c \"import httpx; print\\(httpx.__version__\\); import starlette; print\\(starlette.__version__\\)\")",
+      "Bash(.venv/Scripts/python -c \"import fastapi; print\\(fastapi.__version__\\)\")",
+      "Bash(.venv/Scripts/pip install \"fastapi>=0.115.0,<0.116\" \"uvicorn>=0.30.0\" \"httpx>=0.28.1\" -q)",
+      "Bash(.venv/Scripts/pip install -e . -q)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring_api.py -v --tb=short)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring_api.py tests/test_planning_engine.py tests/test_planner_quality.py tests/test_document_parser_cleaning.py tests/test_document_parser_metadata.py -v --tb=short)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring_api.py tests/test_planning_engine.py tests/test_planner_quality.py -v --tb=short -W error::DeprecationWarning)",
+      "Bash(python -c \"from config.settings import settings; print\\(''USE_GEMINI:'', settings.USE_GEMINI\\); print\\(''GEMINI_MODEL:'', settings.GEMINI_MODEL\\); print\\(''KEY set:'', bool\\(settings.GEMINI_API_KEY\\)\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(curl -s http://localhost:11434/api/tags)",
+      "Bash(.venv/Scripts/python -W ignore -c \":*)"
+    ]
+  }
+}
