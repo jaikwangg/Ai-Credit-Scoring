@@ -1,30 +1,38 @@
 import logging
 from typing import Dict, Any
 
+from src.db.models import CreditScoreResult
+
 logger = logging.getLogger(__name__)
 
 class FeatureMergerService:
     @staticmethod
     def merge_features(customer_id: str, db_session: Any) -> Dict[str, Any]:
         """
-        Simulates querying:
-        1. Operational DB (history of customer)
-        2. Credit Bureau DB
-        3. Feature Store
+        Queries the operational DB for customer history, then returns merged
+        features for the scoring model.
 
-        If the customer hasn't been seen before, we flag them as `is_thin_file` 
-        and provide baseline/imputed features.
+        If the customer has no prior records, they are flagged as `is_thin_file`
+        and conservative baseline features are imputed.
         """
         logger.info(f"Merging features for customer_id: {customer_id}")
-        
-        # Real-world: query db_session for history
-        is_known = "existing" in customer_id.lower()
-        
+
+        prior_record = (
+            db_session.query(CreditScoreResult)
+            .filter(CreditScoreResult.customer_id == customer_id)
+            .order_by(CreditScoreResult.id.desc())
+            .first()
+        )
+        is_known = prior_record is not None
+
         if is_known:
+            # Populate from the most recent DB record.
+            # TODO: extend with credit bureau and feature store queries.
+            approved_history = prior_record.approved
             return {
-                "historical_defaults": 0,
-                "credit_bureau_score": 750,
-                "credit_grade": "AA",
+                "historical_defaults": 0 if approved_history else 1,
+                "credit_bureau_score": 700,  # placeholder until bureau API is integrated
+                "credit_grade": "BB",        # placeholder
                 "outstanding": 0.0,
                 "overdue_amount": 0.0,
                 "has_coapplicant": False,
@@ -32,7 +40,7 @@ class FeatureMergerService:
                 "months_since_last_delinquency": 36,
             }
         else:
-            # Impute for thin file
+            # Thin-file: no history found — impute conservative defaults
             return {
                 "historical_defaults": -1,   # Unknown
                 "credit_bureau_score": 600,  # Median default

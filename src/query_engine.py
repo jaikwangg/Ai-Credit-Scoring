@@ -169,7 +169,16 @@ def _apply_similarity_cutoff(nodes: List[Any], cutoff: float) -> List[Any]:
     kept = [node for node in nodes if _safe_score(node) >= cutoff]
     if kept:
         return kept
-    # Prevent aggressive cutoffs from dropping all evidence for table-heavy Thai docs.
+    # All nodes fell below the cutoff (common for table-heavy Thai PDFs).
+    # Fall back to the full set but flag it so callers can signal low confidence.
+    logger.warning(
+        "_apply_similarity_cutoff: 0/%d nodes passed cutoff=%.3f — returning all nodes with low confidence",
+        len(nodes),
+        cutoff,
+    )
+    for node in nodes:
+        if hasattr(node, "metadata") and isinstance(node.metadata, dict):
+            node.metadata["low_confidence_fallback"] = True
     return nodes
 
 

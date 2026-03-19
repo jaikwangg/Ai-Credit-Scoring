@@ -2,6 +2,7 @@
 Utility functions for LlamaIndex project
 """
 
+import functools
 import logging
 import os
 import sys
@@ -28,7 +29,7 @@ def setup_logging(log_level: str = None) -> None:
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler('llama_index.log')
+            logging.FileHandler(str(settings.PROJECT_ROOT / "logs" / "llama_index.log"))
         ]
     )
 
@@ -134,14 +135,15 @@ def measure_performance(func):
     Returns:
         Wrapped function
     """
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
-        
+
         logger.info(f"{func.__name__} executed in {end_time - start_time:.2f} seconds")
         return result
-    
+
     return wrapper
 
 def get_document_summary(documents: List) -> Dict[str, Any]:

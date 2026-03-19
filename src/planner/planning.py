@@ -676,7 +676,7 @@ def _llm_synthesize_plan(plan: dict, user_input: dict) -> str:
     credit_score = user_input.get("credit_score", "ไม่ระบุ")
     credit_grade = user_input.get("credit_grade", "ไม่ระบุ")
     outstanding = float(user_input.get("outstanding") or 0)
-    overdue = user_input.get("overdue", 0)
+    overdue = float(user_input.get("overdue") or 0)
     loan_amount = float(user_input.get("loan_amount") or 0)
     loan_term = user_input.get("loan_term", "ไม่ระบุ")
     coapplicant = "มี" if user_input.get("Coapplicant") else "ไม่มี"
@@ -793,11 +793,67 @@ def _llm_synthesize_approved(decision: dict, checklist_text: str, user_input: di
         return ""
 
 
+def _issup_check_plan(result_th: str, actions: List[dict]) -> Optional[int]:
+    """
+    [IsSup] reflection for planning: score (1-5) whether result_th is grounded
+    in the evidence collected by build_actions().
+
+    Returns score 1-5; < 2 means not grounded → caller should fall back to
+    rule-based render_plan_th().
+    Returns None when the LLM is unavailable — callers must treat None
+    conservatively (i.e. fall back to rule-based render) rather than trusting
+    the unverified output.
+    """
+    try:
+        from llama_index.core.settings import Settings  # noqa: PLC0415
+        llm = getattr(Settings, "llm", None)
+        if llm is None:
+            return None  # unknown — caller should fall back to rule-based render
+    except Exception:
+        return None
+
+    # Collect evidence snippets from all actions
+    evidence_lines: List[str] = []
+    for a in actions:
+        title = str(a.get("title_th", "")).strip()
+        how = str(a.get("how_th", "")).strip()
+        if title:
+            evidence_lines.append(f"- {title}: {_trim_text(how, 120)}")
+    evidence_block = "\n".join(evidence_lines) if evidence_lines else "(ไม่มีหลักฐาน)"
+
+    prompt = f"""คุณเป็นผู้ตรวจสอบความน่าเชื่อถือของรายงานการวิเคราะห์สินเชื่อ
+
+หลักฐานที่มีอยู่จริง (จากข้อมูล SHAP + RAG):
+{evidence_block}
+
+รายงานที่ต้องตรวจสอบ:
+{_trim_text(result_th, 600)}
+
+คำถาม: รายงานนี้มีเนื้อหาสอดคล้องกับหลักฐานที่มีอยู่จริงมากน้อยเพียงใด?
+ตอบด้วยตัวเลข 1-5 เพียงตัวเดียว:
+1 = ข้อมูลขัดแย้งหรือแต่งเติมเกินจริงอย่างชัดเจน
+2 = บางส่วนไม่สอดคล้องกับหลักฐาน
+3 = ส่วนใหญ่สอดคล้อง มีการขยายความบ้าง
+4 = สอดคล้องดี
+5 = สอดคล้องอย่างสมบูรณ์
+
+ตอบเฉพาะตัวเลข:""".strip()
+
+    try:
+        import re as _re
+        raw = str(llm.complete(prompt)).strip()
+        match = _re.search(r"[1-5]", raw)
+        return int(match.group()) if match else 3
+    except Exception:
+        return 3
+
+
 def generate_response(
     user_input: dict,
     model_output: dict,
     shap_json: dict,
     rag_lookup: Optional[Callable[[str], dict]] = None,
+    use_issup: bool = False,
 ) -> dict:
     decision = parse_model_output(model_output)
 
@@ -816,10 +872,27 @@ def generate_response(
         shap_json=shap_json,
         rag_lookup=rag_lookup,
     )
-    result_th = _llm_synthesize_plan(plan, user_input) or render_plan_th(plan, style="123")
-    return {
+    llm_result = _llm_synthesize_plan(plan, user_input)
+    issup_score: Optional[int] = None
+    issup_passed: Optional[bool] = None
+    if llm_result and use_issup:
+        issup_score = _issup_check_plan(llm_result, plan.get("actions", []))
+        if issup_score is None:
+            # LLM unavailable — cannot verify groundedness, fall back conservatively
+            issup_passed = False
+            llm_result = ""
+        else:
+            issup_passed = issup_score >= 2
+            if not issup_passed:
+                llm_result = ""  # fall back to rule-based render
+    result_th = llm_result or render_plan_th(plan, style="123")
+    response: dict = {
         "mode": "improvement_plan",
         "decision": decision,
         "result_th": result_th,
         "plan": plan,
     }
+    if use_issup:
+        response["issup_score"] = issup_score
+        response["issup_passed"] = issup_passed
+    return response

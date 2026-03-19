@@ -20,23 +20,44 @@ def extract_rag_sources(plan_result: Dict[str, Any]) -> list:
     return sources
 
 
-def make_rag_lookup(query_fn: Callable[[str], Dict[str, Any]]) -> Callable[[str], dict]:
+def make_rag_lookup(
+    query_fn: Callable[[str], Dict[str, Any]],
+    use_cache: bool = True,
+) -> Callable[[str], dict]:
     """
     Wrap QueryEngineManager.query() into the planner's rag_lookup signature.
 
     planner expects: rag_lookup(query: str) -> {"answer": str, "sources": list}
     query_fn returns: {"answer": str, "sources": [...], "router_label": str, ...}
+
+    Results are cached in the global QueryCache (TTL 1h, LRU 256 entries) when
+    use_cache=True (default).  Empty / failed answers are never cached.
     """
+    from src.rag.cache import get_cache
+    cache = get_cache() if use_cache else None
+
     def rag_lookup(query: str) -> dict:
+        if cache is not None:
+            cached = cache.get(query)
+            if cached is not None:
+                logger.debug("RAG cache hit for query %r", query[:60])
+                return cached
+
         try:
             result = query_fn(query)
-            return {
+            data = {
                 "answer": result.get("answer", ""),
                 "sources": result.get("sources", []),
             }
         except Exception as exc:
             logger.warning("RAG lookup failed for query %r: %s", query[:60], exc)
             return {"answer": "", "sources": []}
+
+        # Only cache non-empty answers
+        if cache is not None and data.get("answer"):
+            cache.set(query, data)
+
+        return data
 
     return rag_lookup
 
@@ -127,4 +148,4 @@ def get_rag_manager() -> Optional[Any]:
             logger.warning("RAG manager unavailable — planner will run without RAG: %s", exc)
             _manager = _UNAVAILABLE
 
-    return _manager
+    return None if _manager is _UNAVAILABLE else _manager

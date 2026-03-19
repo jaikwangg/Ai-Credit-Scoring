@@ -145,7 +145,7 @@ def validate_nodes(
     - Metadata says it is a CIMB loan doc (policy/rate_sheet/form).
     """
     q = (question or "").lower()
-    explicit_allow_blocked = _has_any(q, EXPLICIT_ALLOW_TERMS)
+    question_has_explicit_terms = _has_any(q, EXPLICIT_ALLOW_TERMS)
     label = (router_label or "general_info").strip().lower()
 
     validated: List[Any] = []
@@ -154,7 +154,7 @@ def validate_nodes(
         if not text.strip():
             continue
 
-        if _has_any(text, GLOBAL_BLOCKLIST) and not explicit_allow_blocked:
+        if _has_any(text, GLOBAL_BLOCKLIST) and not question_has_explicit_terms:
             continue
 
         metadata = _extract_metadata(node)
@@ -169,7 +169,7 @@ def validate_nodes(
             continue
 
         route_blocklist = ROUTE_BLOCKLIST.get(label, ())
-        if route_blocklist and _has_any(text, route_blocklist) and not explicit_allow_blocked:
+        if route_blocklist and _has_any(text, route_blocklist) and not question_has_explicit_terms:
             continue
 
         validated.append(node)

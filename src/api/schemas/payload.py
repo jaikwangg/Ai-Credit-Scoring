@@ -18,8 +18,15 @@ class FinancialData(BaseModel):
     
     @field_validator("monthly_expenses")
     @classmethod
-    def check_expenses_vs_income(cls, v):
-        # We allow expenses > income but we could log/warn
+    def check_expenses_vs_income(cls, v, info):
+        import logging as _logging
+        monthly_income = (info.data or {}).get("monthly_income")
+        if monthly_income is not None and v > monthly_income:
+            _logging.getLogger(__name__).warning(
+                "monthly_expenses (%s) exceeds monthly_income (%s) — potential data entry error",
+                v,
+                monthly_income,
+            )
         return v
 
 class LoanRequestData(BaseModel):
@@ -52,6 +59,10 @@ class ScoringResponse(BaseModel):
     request_id: str = Field(..., description="Echoes the request trace ID.")
     approved: bool = Field(..., description="Binary classification result (approve/reject).")
     probability_score: float = Field(..., description="Continuous probability score [0.0 - 1.0].")
+    model_type: str = Field(
+        "rule_based",
+        description="Scoring engine type: 'rule_based' = calibrated weighted formula (research). 'ml' = trained ML model.",
+    )
     explanations: ModelExplanations
     advice: Optional[PlannerAdvice] = Field(None, description="Thai-language advice from planner+RAG.")
 
@@ -71,7 +82,7 @@ class UserInputFeatures(BaseModel):
     credit_score: float = Field(..., description="Credit bureau score (300–850).")
     credit_grade: str = Field("CC", description="Credit grade: AA, BB, CC, DD, EE, FF.")
     outstanding: float = Field(0.0, description="Total outstanding debt (THB).")
-    overdue: float = Field(0.0, description="Overdue amount in days or THB.")
+    overdue: float = Field(0.0, ge=0.0, description="Number of overdue days (not THB amount). Used in scoring as overdue/90.")
     Coapplicant: Union[bool, int] = Field(False, description="1/true if co-applicant exists.")
     loan_amount: float = Field(..., description="Requested loan amount (THB).")
     loan_term: float = Field(..., description="Loan term in years.")
@@ -117,6 +128,8 @@ class ExternalPlanResponse(BaseModel):
     p_reject: float
     result_th: str = Field(..., description="Thai-language plan or approval checklist.")
     rag_sources: List[Dict[str, Any]] = Field(default_factory=list)
+    issup_score: Optional[int] = Field(None, description="[IsSup] groundedness score (1-5). Present only when use_issup=true.")
+    issup_passed: Optional[bool] = Field(None, description="True if IsSup score >= 2 (plan is grounded). Present only when use_issup=true.")
 
 
 # -----------------------------------
@@ -136,6 +149,22 @@ class RAGQueryRequest(BaseModel):
     top_k: Optional[int] = Field(None, description="Number of documents to retrieve (default: settings.SIMILARITY_TOP_K).")
 
 
+class SelfRAGTraceSchema(BaseModel):
+    """Diagnostic trace from Self-RAG reflection steps."""
+    retrieve_needed: bool = True
+    nodes_before_isrel: int = 0
+    nodes_after_isrel: int = 0
+    isrel_scores: List[Dict[str, Any]] = Field(default_factory=list)
+    issup_score: Optional[int] = None
+    issup_passed: bool = False
+    isgen_score: Optional[int] = Field(None, description="[IsGen] score (1-5): does the answer address the question?")
+    isgen_passed: bool = Field(False, description="True if IsGen score >= threshold (answer is on-topic).")
+    retry_attempted: bool = False
+    resynth_used: bool = False
+    total_reflection_calls: int = 0
+    elapsed_s: float = 0.0
+
+
 class RAGQueryResponse(BaseModel):
     """Response from POST /rag/query"""
     question: str
@@ -144,6 +173,7 @@ class RAGQueryResponse(BaseModel):
     sources: List[RAGSource] = Field(default_factory=list, description="Retrieved source documents.")
     retrieved_count: int = Field(0, description="Total nodes retrieved before filtering.")
     validated_count: int = Field(0, description="Nodes passed validation and used in answer.")
+    self_rag_trace: Optional[SelfRAGTraceSchema] = Field(None, description="Self-RAG reflection trace (only present on /rag/query/self).")
 
 
 class SimplePlanRequest(BaseModel):
@@ -152,3 +182,90 @@ class SimplePlanRequest(BaseModel):
     """
     request_id: str = Field(..., description="Unique trace ID.")
     features: UserInputFeatures
+
+
+# -----------------------------------
+# What-If / Counterfactual Simulation
+# -----------------------------------
+
+class WhatIfChange(BaseModel):
+    """Describes a single feature change.  Provide exactly one of: value / delta / delta_pct."""
+    value: Optional[Any] = Field(None, description="Set feature to this exact value.")
+    delta: Optional[float] = Field(None, description="Add this amount to the current value (numeric features only).")
+    delta_pct: Optional[float] = Field(None, description="Change by this percentage (numeric features only). E.g. -20 means -20%.")
+
+
+class SimulationRequest(BaseModel):
+    """Request schema for POST /plan/simulate."""
+    request_id: str = Field(..., description="Unique trace ID.")
+    features: UserInputFeatures
+    what_if: Dict[str, WhatIfChange] = Field(
+        ...,
+        description="Feature changes to simulate. Keys must be valid UserInputFeatures field names.",
+    )
+
+
+class ScenarioResult(BaseModel):
+    """Scoring outcome for one scenario (baseline or simulated)."""
+    approved: bool
+    p_approve: float
+    p_reject: float
+    shap_values: Dict[str, float]
+    features: Dict[str, Any] = Field(default_factory=dict, description="Actual feature values used in this scenario.")
+
+
+class SimulationResponse(BaseModel):
+    """Response from POST /plan/simulate."""
+    request_id: str
+    baseline: ScenarioResult
+    simulated: ScenarioResult
+    delta_p_approve: float = Field(..., description="Change in approval probability (simulated − baseline).")
+    shap_diff: Dict[str, float] = Field(default_factory=dict, description="Per-feature SHAP change (simulated − baseline).")
+    changed_features: List[str] = Field(default_factory=list, description="Features that were modified by what_if.")
+    verdict: str = Field(..., description="Thai-language summary of the simulation impact.")
+
+
+# -----------------------------------
+# Batch Evaluation
+# -----------------------------------
+
+class BatchItem(BaseModel):
+    """A single applicant entry inside a batch request."""
+    request_id: str = Field(..., description="Unique trace ID for this item.")
+    features: UserInputFeatures
+
+
+class BatchPlanRequest(BaseModel):
+    """Request schema for POST /plan/batch."""
+    batch_id: str = Field(..., min_length=1, description="Unique identifier for this batch job.")
+    items: List[BatchItem] = Field(..., min_length=1, max_length=200, description="List of applicants to evaluate (max 200).")
+    include_plan: bool = Field(False, description="If true, generate full Thai-language plan for each item (slower).")
+
+
+class BatchItemResult(BaseModel):
+    """Result for a single applicant in a batch."""
+    request_id: str
+    approved: bool
+    p_approve: float
+    p_reject: float
+    mode: Optional[str] = Field(None, description="'approved_guidance' or 'improvement_plan'. Present only when include_plan=true.")
+    result_th: Optional[str] = Field(None, description="Thai-language plan. Present only when include_plan=true.")
+    error: Optional[str] = Field(None, description="Error message if this item failed.")
+
+
+class BatchSummary(BaseModel):
+    """Aggregate statistics for the batch."""
+    total: int
+    approved_count: int
+    rejected_count: int
+    error_count: int
+    approval_rate: float = Field(..., description="Fraction of non-errored items that were approved.")
+    avg_p_approve: float = Field(..., description="Mean approval probability across non-errored items.")
+    elapsed_s: float
+
+
+class BatchPlanResponse(BaseModel):
+    """Response from POST /plan/batch."""
+    batch_id: str
+    summary: BatchSummary
+    results: List[BatchItemResult]

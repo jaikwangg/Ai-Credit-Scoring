@@ -50,8 +50,9 @@ class IndexManager:
             documents = self.data_loader.load_documents_from_directory()
         
         if not documents:
-            logger.warning("No documents to index")
-            return None
+            raise ValueError(
+                "No documents to index. Add files to the documents directory and retry."
+            )
         
         # Add metadata to documents
         documents = self.data_loader.add_metadata_to_documents(documents)

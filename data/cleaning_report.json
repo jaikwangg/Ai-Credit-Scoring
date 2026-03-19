@@ -1,0 +1,297 @@
+{
+  "generated_at": "2026-03-16T22:34:33.822998Z",
+  "removed_docs": [
+    {
+      "id": "privacy-notice-personal-th",
+      "reason": "not relevant to home loan corpus"
+    },
+    {
+      "id": "privacy-notice-announcement-th-2022",
+      "reason": "not relevant to home loan corpus"
+    },
+    {
+      "id": "customer-profiling-notice-th-2025",
+      "reason": "not relevant to home loan corpus"
+    },
+    {
+      "id": "special-relief-assistance-measures-phase2-th-2020",
+      "reason": "not relevant to home loan corpus"
+    },
+    {
+      "id": "customer-support-measures-covid-th-2021",
+      "reason": "not relevant to home loan corpus"
+    }
+  ],
+  "empty_after_clean": [],
+  "date_fixes": [
+    {
+      "id": "debtor-management-policies-notice-th-2020",
+      "before": "2026-02-27T22:34:15+00:00",
+      "after": "2020-01-01T00:00:00+00:00"
+    },
+    {
+      "id": "feedback-or-complaint-notice-th-2020",
+      "before": "2026-02-27T22:34:16+00:00",
+      "after": "2020-01-01T00:00:00+00:00"
+    }
+  ],
+  "category_fixes": [
+    {
+      "id": "home-loan-refinance-th",
+      "before": "bank_policy",
+      "after": "interest_structure"
+    },
+    {
+      "id": "service-fees-th",
+      "before": "bank_policy",
+      "after": "bank_policy"
+    },
+    {
+      "id": "debtor-management-policies-notice-th-2020",
+      "before": "bank_policy",
+      "after": "regulation"
+    }
+  ],
+  "title_fixes": [
+    {
+      "id": "home-loan-overview-th",
+      "before": "โฮมโลน | สินเชื่อบ้าน | CIMB TH",
+      "after": "โฮมโลน"
+    },
+    {
+      "id": "home-loan-4u-th",
+      "before": "โฮมโลนฟอร์ยู | สินเชื่อบ้าน | CIMB TH",
+      "after": "โฮมโลนฟอร์ยู"
+    },
+    {
+      "id": "home-loan-refinance-th",
+      "before": "รีไฟแนนซ์ | สินเชื่อบ้าน | CIMB TH",
+      "after": "รีไฟแนนซ์"
+    },
+    {
+      "id": "loan-interest-rates-th",
+      "before": "อัตราดอกเบี้ยเงินกู้ | อัตราและค่าธรรมเนียม | CIMB TH",
+      "after": "อัตราดอกเบี้ยเงินกู้"
+    },
+    {
+      "id": "fire-insurance-secured-loans-th",
+      "before": "ประกันอัคคีภัย สำหรับสินเชื่อมีหลักประกัน | CIMB TH",
+      "after": "ประกันอัคคีภัย สำหรับสินเชื่อมีหลักประกัน"
+    },
+    {
+      "id": "service-sla-th",
+      "before": "ข้อมูลคุณภาพการให้บริการ | บริการช่วยเหลือ  CIMB TH",
+      "after": "ข้อมูลคุณภาพการให้บริการ"
+    },
+    {
+      "id": "home-loan-certification-app-th",
+      "before": "การขอหนังสือรับรองดอกเบี้ยบ้านผ่าน CIMB THAI App | CIMB TH",
+      "after": "การขอหนังสือรับรองดอกเบี้ยบ้านผ่าน CIMB THAI App"
+    },
+    {
+      "id": "feedback-or-complaint-notice-th-2020",
+      "before": "ช่องทางเสนอแนะหรือร้องเรียน | CIMB Thai Important Notice",
+      "after": "ช่องทางเสนอแนะหรือร้องเรียน"
+    }
+  ],
+  "cleaned_docs": [
+    {
+      "id": "home-loan-overview-th",
+      "is_web_scraped": false,
+      "raw_content_lines": 4,
+      "cleaned_content_lines": 4,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "home-loan-4u-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 397,
+      "cleaned_content_lines": 92,
+      "reduction_pct": 76.8,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "home-loan-refinance-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 395,
+      "cleaned_content_lines": 90,
+      "reduction_pct": 77.2,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "loan-interest-rates-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 392,
+      "cleaned_content_lines": 84,
+      "reduction_pct": 78.6,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "service-fees-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 540,
+      "cleaned_content_lines": 233,
+      "reduction_pct": 56.9,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "form-download-center-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 320,
+      "cleaned_content_lines": 12,
+      "reduction_pct": 96.2,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "fire-insurance-secured-loans-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 388,
+      "cleaned_content_lines": 81,
+      "reduction_pct": 79.1,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "service-sla-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 483,
+      "cleaned_content_lines": 175,
+      "reduction_pct": 63.8,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "tcf-commitment-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 308,
+      "cleaned_content_lines": 2,
+      "reduction_pct": 99.4,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "responsible-lending-notice-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 322,
+      "cleaned_content_lines": 20,
+      "reduction_pct": 93.8,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "flood-relief-measures-th-2024",
+      "is_web_scraped": true,
+      "raw_content_lines": 340,
+      "cleaned_content_lines": 38,
+      "reduction_pct": 88.8,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "relief-measures-border-flooding-th-2025",
+      "is_web_scraped": true,
+      "raw_content_lines": 328,
+      "cleaned_content_lines": 26,
+      "reduction_pct": 92.1,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "home-loan-certification-app-th",
+      "is_web_scraped": true,
+      "raw_content_lines": 310,
+      "cleaned_content_lines": 7,
+      "reduction_pct": 97.7,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "home-loan-generic-rate-th-2026",
+      "is_web_scraped": false,
+      "raw_content_lines": 39,
+      "cleaned_content_lines": 39,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "refinance-generic-rate-plan1-th-2026",
+      "is_web_scraped": false,
+      "raw_content_lines": 94,
+      "cleaned_content_lines": 94,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "refinance-generic-rate-plan2-th-2026",
+      "is_web_scraped": false,
+      "raw_content_lines": 116,
+      "cleaned_content_lines": 116,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "mortgage-power-generic-rate-th-2026",
+      "is_web_scraped": false,
+      "raw_content_lines": 64,
+      "cleaned_content_lines": 64,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "property-loan-generic-rate-th-2026",
+      "is_web_scraped": false,
+      "raw_content_lines": 23,
+      "cleaned_content_lines": 23,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "property-loan-sales-sheet-th-2026",
+      "is_web_scraped": false,
+      "raw_content_lines": 231,
+      "cleaned_content_lines": 231,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "loan-close-account-collateral-release-form-th-2025",
+      "is_web_scraped": false,
+      "raw_content_lines": 57,
+      "cleaned_content_lines": 57,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "debt-restructuring-extension-form-th-2025",
+      "is_web_scraped": false,
+      "raw_content_lines": 42,
+      "cleaned_content_lines": 42,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "loan-interest-disclosure-consent-form-th-2026",
+      "is_web_scraped": false,
+      "raw_content_lines": 24,
+      "cleaned_content_lines": 24,
+      "reduction_pct": 0.0,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "debtor-management-policies-notice-th-2020",
+      "is_web_scraped": true,
+      "raw_content_lines": 315,
+      "cleaned_content_lines": 7,
+      "reduction_pct": 97.8,
+      "is_empty_after_clean": null
+    },
+    {
+      "id": "feedback-or-complaint-notice-th-2020",
+      "is_web_scraped": true,
+      "raw_content_lines": 321,
+      "cleaned_content_lines": 13,
+      "reduction_pct": 96.0,
+      "is_empty_after_clean": null
+    }
+  ],
+  "needs_rescrape": [
+    {
+      "id": "home-loan-overview-th",
+      "reason": "page content is unrendered template variables (JS-rendered page); needs re-scrape with headless browser"
+    }
+  ]
+}

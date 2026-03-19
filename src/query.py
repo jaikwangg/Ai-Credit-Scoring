@@ -17,26 +17,19 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 
 try:
     from .schema import AssistantResponse
-    from .settings import (
-        CHROMA_COLLECTION,
-        CHROMA_PERSIST_DIR,
-        EMBED_MODEL,
-        INDEX_DIR,
-        OLLAMA_BASE_URL,
-        OLLAMA_MODEL,
-        VECTOR_STORE_TYPE,
-    )
+    from .settings import EMBED_MODEL, INDEX_DIR, OLLAMA_BASE_URL, OLLAMA_MODEL, VECTOR_STORE_TYPE
 except ImportError:  # pragma: no cover - script execution fallback
     from src.schema import AssistantResponse
-    from src.settings import (
-        CHROMA_COLLECTION,
-        CHROMA_PERSIST_DIR,
-        EMBED_MODEL,
-        INDEX_DIR,
-        OLLAMA_BASE_URL,
-        OLLAMA_MODEL,
-        VECTOR_STORE_TYPE,
-    )
+    from src.settings import EMBED_MODEL, INDEX_DIR, OLLAMA_BASE_URL, OLLAMA_MODEL, VECTOR_STORE_TYPE
+
+# ChromaDB settings: import from the canonical source (config/settings.py) so
+# query.py and indexer.py always address the same collection.
+try:
+    from config.settings import settings as _cfg
+    CHROMA_COLLECTION = _cfg.CHROMA_COLLECTION
+    CHROMA_PERSIST_DIR = _cfg.CHROMA_PERSIST_DIR
+except ImportError:  # pragma: no cover
+    from src.settings import CHROMA_COLLECTION, CHROMA_PERSIST_DIR
 
 
 def _friendly_ollama_error(exc: Exception) -> RuntimeError:

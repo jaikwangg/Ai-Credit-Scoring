@@ -1,0 +1,223 @@
+{
+  "corpus": "thai_home_loan_ai/cimb",
+  "document_count": 24,
+  "documents": [
+    {
+      "id": "home-loan-overview-th",
+      "title": "โฮมโลน",
+      "source_url": "https://www.cimbthai.com/th/personal/products/loans/home-loan.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2025-10-07T09:36:20+00:00",
+      "category": "eligibility_rule",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/home-loan-overview-th.txt",
+      "needs_rescrape": true
+    },
+    {
+      "id": "home-loan-4u-th",
+      "title": "โฮมโลนฟอร์ยู",
+      "source_url": "https://www.cimbthai.com/th/personal/products/loans/home-loan/home-loan-4u.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-23T07:36:18+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/home-loan-4u-th.txt"
+    },
+    {
+      "id": "home-loan-refinance-th",
+      "title": "รีไฟแนนซ์",
+      "source_url": "https://www.cimbthai.com/th/personal/products/loans/home-loan/refinance.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-01-05T13:26:17+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/home-loan-refinance-th.txt"
+    },
+    {
+      "id": "loan-interest-rates-th",
+      "title": "อัตราดอกเบี้ยเงินกู้",
+      "source_url": "https://www.cimbthai.com/th/personal/help-support/rates-charges/loan-interest-rates.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2025-12-29T08:31:17+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/loan-interest-rates-th.txt"
+    },
+    {
+      "id": "service-fees-th",
+      "title": "ค่าธรรมเนียมบริการ",
+      "source_url": "https://www.cimbthai.com/th/personal/help-support/rates-charges/fees/service-fees.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-01-30T08:39:35+00:00",
+      "category": "bank_policy",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/service-fees-th.txt"
+    },
+    {
+      "id": "form-download-center-th",
+      "title": "Form Download Center",
+      "source_url": "https://www.cimbthai.com/th/personal/help-support/form_download_center.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-01-23T09:13:38+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/form-download-center-th.txt"
+    },
+    {
+      "id": "fire-insurance-secured-loans-th",
+      "title": "ประกันอัคคีภัย สำหรับสินเชื่อมีหลักประกัน",
+      "source_url": "https://www.cimbthai.com/th/personal/products/insurance/non-life-insurances/cimb-thai-fire-insurance-for-secured-loans.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2025-06-04T04:23:18+00:00",
+      "category": "bank_policy",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/fire-insurance-secured-loans-th.txt"
+    },
+    {
+      "id": "service-sla-th",
+      "title": "ข้อมูลคุณภาพการให้บริการ",
+      "source_url": "https://www.cimbthai.com/th/personal/help-support/service-sla.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-01-26T03:12:21+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/service-sla-th.txt"
+    },
+    {
+      "id": "tcf-commitment-th",
+      "title": "คำมั่นสัญญาการให้บริการลูกค้าธนาคาร ซีไอเอ็มบี ไทย",
+      "source_url": "https://www.cimbthai.com/th/personal/help-support/cimb-thai-s-treating-customers-fairly-commitment.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2021-04-02T03:50:24+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/tcf-commitment-th.txt"
+    },
+    {
+      "id": "responsible-lending-notice-th",
+      "title": "การให้สินเชื่ออย่างรับผิดชอบและเป็นธรรม (Responsible Lending)",
+      "source_url": "https://www.cimbthai.com/th/personal/important-notices/2024/responsible-lending.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2024-07-02T04:59:13+00:00",
+      "category": "regulation",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/responsible-lending-notice-th.txt"
+    },
+    {
+      "id": "flood-relief-measures-th-2024",
+      "title": "มาตรการช่วยเหลือผู้ประสบภัยน้ำท่วมของธนาคาร ซีไอเอ็มบี ไทย จำกัด (มหาชน)",
+      "source_url": "https://www.cimbthai.com/th/personal/important-notices/2024/flood-relief-measures.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2024-09-30T08:41:17+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/flood-relief-measures-th-2024.txt"
+    },
+    {
+      "id": "relief-measures-border-flooding-th-2025",
+      "title": "มาตรการช่วยเหลือผู้ประสบภัยชายแดนไทย-กัมพูชา และอุทกภัยภาคเหนือ",
+      "source_url": "https://www.cimbthai.com/th/personal/important-notices/2025/relief-measures-border-areas-and-flooding.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2025-07-30T03:24:30+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/relief-measures-border-flooding-th-2025.txt"
+    },
+    {
+      "id": "home-loan-certification-app-th",
+      "title": "การขอหนังสือรับรองดอกเบี้ยบ้านผ่าน CIMB THAI App",
+      "source_url": "https://www.cimbthai.com/th/personal/ways-to-bank/cimb-thai-digital-banking/how-to-request-home-loan-certification-through-app-cimb-thai-digital-banking.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2025-11-13T04:24:16+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/home-loan-certification-app-th.txt"
+    },
+    {
+      "id": "home-loan-generic-rate-th-2026",
+      "title": "อัตราดอกเบี้ยสินเชื่อบ้านใหม่ (Generic) ปี 2568/2569",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/loan/homeloan/2026/%E0%B8%94%E0%B8%AD%E0%B8%81%E0%B9%80%E0%B8%9A%E0%B8%B5%E0%B9%89%E0%B8%A2%20Generic%20-%20%E0%B8%9A%E0%B9%89%E0%B8%B2%E0%B8%99%E0%B9%83%E0%B8%AB%E0%B8%A1%E0%B9%881-Th_261268.pdf",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:11+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/home-loan-generic-rate-th-2026.txt"
+    },
+    {
+      "id": "refinance-generic-rate-plan1-th-2026",
+      "title": "อัตราดอกเบี้ยรีไฟแนนซ์ Generic แผน 1 ปี 2568/2569",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/loan/refinance/2026/%E0%B8%94%E0%B8%AD%E0%B8%81%E0%B9%80%E0%B8%9A%E0%B8%B5%E0%B9%89%E0%B8%A2%20Generic%20-%20%E0%B8%A3%E0%B8%B5%E0%B9%84%E0%B8%9F%E0%B9%81%E0%B8%99%E0%B8%99%E0%B8%8B%E0%B9%8C1-Th_261268.pdf",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:11+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/refinance-generic-rate-plan1-th-2026.txt"
+    },
+    {
+      "id": "refinance-generic-rate-plan2-th-2026",
+      "title": "อัตราดอกเบี้ยรีไฟแนนซ์ Generic แผน 2 ปี 2568/2569",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/loan/refinance/2026/%E0%B8%94%E0%B8%AD%E0%B8%81%E0%B9%80%E0%B8%9A%E0%B8%B5%E0%B9%89%E0%B8%A2%20Generic%20-%20%E0%B8%A3%E0%B8%B5%E0%B9%84%E0%B8%9F%E0%B9%81%E0%B8%99%E0%B8%99%E0%B8%8B%E0%B9%8C2-Th_261268.pdf",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:11+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/refinance-generic-rate-plan2-th-2026.txt"
+    },
+    {
+      "id": "mortgage-power-generic-rate-th-2026",
+      "title": "อัตราดอกเบี้ย Mortgage Power (สินเชื่อบ้านแลกเงิน) ปี 2569",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/loan/mortgage/feb/%E0%B8%94%E0%B8%AD%E0%B8%81%E0%B9%80%E0%B8%9A%E0%B8%B5%E0%B9%89%E0%B8%A2%20Generic%20-%20%E0%B8%A1%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B9%80%E0%B8%81%E0%B8%88%E0%B8%9E%E0%B8%B2%E0%B8%A7%E0%B9%80%E0%B8%A7%E0%B8%AD%E0%B8%A3%E0%B9%8C-Th_090269.pdf",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:12+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/mortgage-power-generic-rate-th-2026.txt"
+    },
+    {
+      "id": "property-loan-generic-rate-th-2026",
+      "title": "อัตราดอกเบี้ย Property Loan ปี 2568/2569",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/loan/Poperty-loan/2026/%E0%B8%94%E0%B8%AD%E0%B8%81%E0%B9%80%E0%B8%9A%E0%B8%B5%E0%B9%89%E0%B8%A2%20Generic%20-%20%E0%B8%9E%E0%B8%A3%E0%B9%87%E0%B8%AD%E0%B8%9E%E0%B9%80%E0%B8%9E%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%95%E0%B8%B5%E0%B9%89-Th_261268.pdf",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:12+00:00",
+      "category": "interest_structure",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/property-loan-generic-rate-th-2026.txt"
+    },
+    {
+      "id": "property-loan-sales-sheet-th-2026",
+      "title": "Sales Sheet Property Loan (เงื่อนไขผลิตภัณฑ์) ปี 2568",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/loan/Poperty-loan/2026/Sales%20sheet%20PY_Eff%20180868_080868.pdf",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:14+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/property-loan-sales-sheet-th-2026.txt"
+    },
+    {
+      "id": "loan-close-account-collateral-release-form-th-2025",
+      "title": "แบบฟอร์มยกเลิกวงเงิน/ปิดบัญชี/ไถ่ถอนหลักประกัน (สินเชื่อ)",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/form-download-center/2025/...",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:14+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/loan-close-account-collateral-release-form-th-2025.txt"
+    },
+    {
+      "id": "debt-restructuring-extension-form-th-2025",
+      "title": "ใบคำขอปรับปรุงโครงสร้างหนี้ (ขยายระยะเวลาผ่อน)",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/form-download-center/2025/...",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:14+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/debt-restructuring-extension-form-th-2025.txt"
+    },
+    {
+      "id": "loan-interest-disclosure-consent-form-th-2026",
+      "title": "หนังสือยินยอมเปิดเผยข้อมูลดอกเบี้ยเงินกู้ (CIMB THAI)",
+      "source_url": "https://www.cimbthai.com/content/dam/cimbth/personal/documents/form-download-center/2026/...",
+      "institution": "CIMB Thai",
+      "publication_date": "2026-02-27T22:34:15+00:00",
+      "category": "regulation",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/loan-interest-disclosure-consent-form-th-2026.txt"
+    },
+    {
+      "id": "debtor-management-policies-notice-th-2020",
+      "title": "ประกาศชี้แจงนโยบายและขั้นตอนการบริหารจัดการลูกหนี้ของธนาคาร",
+      "source_url": "https://www.cimbthai.com/th/personal/important-notices/2020/clarification-of-cimb-thai-bank-plcs-debtor-management-policies-and-procedures.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2020-01-01T00:00:00+00:00",
+      "category": "regulation",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/debtor-management-policies-notice-th-2020.txt"
+    },
+    {
+      "id": "feedback-or-complaint-notice-th-2020",
+      "title": "ช่องทางเสนอแนะหรือร้องเรียน",
+      "source_url": "https://www.cimbthai.com/th/personal/important-notices/2020/feedback-or-complaint.html",
+      "institution": "CIMB Thai",
+      "publication_date": "2020-01-01T00:00:00+00:00",
+      "category": "consumer_guideline",
+      "file_path": "corpus/thai_home_loan_ai/cimb/cleaned/feedback-or-complaint-notice-th-2020.txt"
+    }
+  ]
+}

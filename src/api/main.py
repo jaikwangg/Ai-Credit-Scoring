@@ -32,7 +32,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     In production, push `request.body` to Dead Letter Queue (DLQ).
     """
     body = await request.body()
-    logger.error(f"[DLQ APPEND] Malformed payload received: {body.decode('utf-8', errors='ignore')} | Errors: {exc.errors()}")
+    # Log only safe metadata — never the raw body which may contain PII (PDPA/GDPR).
+    logger.error(
+        "[DLQ APPEND] Malformed payload | path=%s content_length=%d errors=%s",
+        request.url.path,
+        len(body),
+        exc.errors(),
+    )
     
     return JSONResponse(
         status_code=422,

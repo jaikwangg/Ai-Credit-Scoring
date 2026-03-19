@@ -32,7 +32,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except AttributeError:
+    pass
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 NO_ANSWER = "ไม่พบข้อมูลในเอกสารที่มีอยู่"
@@ -338,6 +341,16 @@ def judge_relevance(llm, query: str, answer: str) -> Optional[float]:
 
 
 # ── main evaluation ────────────────────────────────────────────────────────────
+def init_query_fn(manager, use_self_rag: bool):
+    """Return the query callable — either manager.query or SelfRAGOrchestrator.query."""
+    if use_self_rag:
+        from src.rag.self_rag import SelfRAGOrchestrator
+        orch = SelfRAGOrchestrator(manager)
+        print("Self-RAG mode enabled ([Retrieve] + [IsRel] + [IsSup] + [IsGen])\n")
+        return orch.query
+    return manager.query
+
+
 def init_rag_manager():
     """Initialize ChromaDB + embedding model + QueryEngineManager."""
     import chromadb
@@ -363,7 +376,7 @@ def init_rag_manager():
     return manager
 
 
-def evaluate_all(manager, verbose: bool = False, use_judge: bool = False) -> List[RAGCaseReport]:
+def evaluate_all(query_fn, verbose: bool = False, use_judge: bool = False) -> List[RAGCaseReport]:
     from llama_index.core.settings import Settings
     llm = getattr(Settings, "llm", None) if use_judge else None
 
@@ -371,7 +384,7 @@ def evaluate_all(manager, verbose: bool = False, use_judge: bool = False) -> Lis
     for tc in TEST_CASES:
         t0 = time.time()
         try:
-            result = manager.query(tc.query, similarity_top_k=5, include_sources=True)
+            result = query_fn(tc.query, similarity_top_k=5, include_sources=True)
         except Exception as exc:
             result = {"answer": "", "router_label": "error", "retrieved_node_count": 0,
                       "validated_node_count": 0, "sources": [], "_error": str(exc)}
@@ -439,8 +452,11 @@ def evaluate_all(manager, verbose: bool = False, use_judge: bool = False) -> Lis
             judge_str = f"  G={groundedness:.1f} R={relevance:.1f if relevance else '?'}"
         print(f"[{status}] {tc.description or tc.query[:50]:<50}  {report.passed}/{report.total}  {elapsed:.1f}s{judge_str}", flush=True)
         if verbose and report.answer:
-            print(f"       Route={report.router_label}  nodes={report.validated_count}  score={report.top_score:.3f}  P@K={precision_at_k:.2f if precision_at_k is not None else '?'}")
-            print(f"       Answer: {report.answer[:120]}...")
+            print(f"       Route={report.router_label}  nodes={report.validated_count}  score={report.top_score:.3f}  P@K={f'{precision_at_k:.2f}' if precision_at_k is not None else '?'}", flush=True)
+            print(f"       Answer: {report.answer[:120]}...", flush=True)
+            trace = result.get("self_rag_trace")
+            if trace:
+                print(f"       [Self-RAG] retrieve={trace['retrieve_needed']}  isrel={trace['nodes_after_isrel']}/{trace['nodes_before_isrel']}  issup={trace['issup_score']}/5  calls={trace['total_reflection_calls']}", flush=True)
 
     return reports
 
@@ -509,6 +525,8 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true", help="Show answer preview per query")
     parser.add_argument("--judge", action="store_true",
                         help="Enable LLM-as-judge for Groundedness + Answer Relevance (~+30s/query)")
+    parser.add_argument("--self-rag", action="store_true",
+                        help="Run queries through SelfRAGOrchestrator ([Retrieve]+[IsRel]+[IsSup])")
     args = parser.parse_args()
 
     try:
@@ -518,10 +536,12 @@ def main() -> None:
         print("  Make sure ChromaDB is populated: uv run python -m src.ingest")
         sys.exit(1)
 
+    query_fn = init_query_fn(manager, use_self_rag=args.self_rag)
+
     if args.judge:
         print("LLM-as-judge enabled (Groundedness + Answer Relevance)\n")
     print(f"Running {len(TEST_CASES)} test cases...\n")
-    reports = evaluate_all(manager, verbose=args.verbose, use_judge=args.judge)
+    reports = evaluate_all(query_fn, verbose=args.verbose, use_judge=args.judge)
     print_summary(reports)
 
 
