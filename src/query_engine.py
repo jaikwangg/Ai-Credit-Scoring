@@ -169,17 +169,12 @@ def _apply_similarity_cutoff(nodes: List[Any], cutoff: float) -> List[Any]:
     kept = [node for node in nodes if _safe_score(node) >= cutoff]
     if kept:
         return kept
-    # All nodes fell below the cutoff (common for table-heavy Thai PDFs).
-    # Fall back to the full set but flag it so callers can signal low confidence.
     logger.warning(
-        "_apply_similarity_cutoff: 0/%d nodes passed cutoff=%.3f — returning all nodes with low confidence",
+        "_apply_similarity_cutoff: 0/%d nodes passed cutoff=%.3f — returning empty list",
         len(nodes),
         cutoff,
     )
-    for node in nodes:
-        if hasattr(node, "metadata") and isinstance(node.metadata, dict):
-            node.metadata["low_confidence_fallback"] = True
-    return nodes
+    return []
 
 
 def _final_context_char_count(nodes: List[Any]) -> int:
@@ -872,9 +867,16 @@ class QueryEngineManager:
                     else:
                         final_nodes = _apply_similarity_cutoff(validated_nodes, route_cutoff)
 
-                    final_nodes = _rerank_nodes(question, final_nodes, router_label)[:final_top_k]
+                    if not final_nodes:
+                        # All validated nodes failed similarity cutoff — no credible evidence.
+                        answer_text = NO_ANSWER_MESSAGE
+                        response = NO_ANSWER_MESSAGE
+                        source_nodes = []
+                        manual_pipeline_used = True
+                    else:
+                        final_nodes = _rerank_nodes(question, final_nodes, router_label)[:final_top_k]
 
-                if final_nodes and synthesizer is not None and hasattr(synthesizer, "synthesize"):
+                if not manual_pipeline_used and final_nodes and synthesizer is not None and hasattr(synthesizer, "synthesize"):
                     response = synthesizer.synthesize(question, final_nodes)
                     source_nodes = getattr(response, "source_nodes", []) or final_nodes
                     answer_text = _normalize_answer_text(str(response), question, source_nodes)

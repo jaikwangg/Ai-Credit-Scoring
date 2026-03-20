@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "timestamp": "2026-03-20T04:29:34.365699",
+    "providers": [
+      "gemini",
+      "ollama"
+    ],
+    "rag_cases": 11,
+    "plan_cases": 5
+  },
+  "rag": {
+    "gemini": {
+      "overall_pct": 0.9538,
+      "router_accuracy": 0.9091,
+      "answer_rate": 1.0,
+      "mean_precision_at_k": 0.9208,
+      "mean_latency_s": 7.682,
+      "passed": 62,
+      "total": 65
+    },
+    "ollama": {
+      "overall_pct": 0.9516,
+      "router_accuracy": 0.9091,
+      "answer_rate": 0.875,
+      "mean_precision_at_k": 0.7958,
+      "mean_latency_s": 16.681,
+      "passed": 59,
+      "total": 62
+    }
+  },
+  "planning": {
+    "gemini": {
+      "overall_pct": 1.0,
+      "mode_accuracy": 1.0,
+      "documented_evidence_rate": 1.0,
+      "issup_pass_rate": 1.0,
+      "mean_issup_score": 4.0,
+      "mean_latency_s": 29.183,
+      "passed": 24,
+      "total": 24
+    },
+    "ollama": {
+      "overall_pct": 1.0,
+      "mode_accuracy": 1.0,
+      "documented_evidence_rate": 1.0,
+      "issup_pass_rate": 1.0,
+      "mean_issup_score": 3.0,
+      "mean_latency_s": 78.179,
+      "passed": 24,
+      "total": 24
+    }
+  },
+  "summary_table": [
+    {
+      "metric": "RAG Overall",
+      "gemini": "95%",
+      "ollama": "95%"
+    },
+    {
+      "metric": "RAG Router Accuracy",
+      "gemini": "91%",
+      "ollama": "91%"
+    },
+    {
+      "metric": "RAG Answer Rate",
+      "gemini": "100%",
+      "ollama": "88%"
+    },
+    {
+      "metric": "RAG Mean Precision@K",
+      "gemini": "0.92",
+      "ollama": "0.80"
+    },
+    {
+      "metric": "RAG Mean Latency",
+      "gemini": "7.7s",
+      "ollama": "16.7s"
+    },
+    {
+      "metric": "Plan Overall",
+      "gemini": "100%",
+      "ollama": "100%"
+    },
+    {
+      "metric": "Plan Mode Accuracy",
+      "gemini": "100%",
+      "ollama": "100%"
+    },
+    {
+      "metric": "Plan Documented Evid.",
+      "gemini": "100%",
+      "ollama": "100%"
+    },
+    {
+      "metric": "Plan IsSup Pass Rate",
+      "gemini": "100%",
+      "ollama": "100%"
+    },
+    {
+      "metric": "Plan Mean IsSup Score",
+      "gemini": "4.00",
+      "ollama": "3.00"
+    },
+    {
+      "metric": "Plan Mean Latency",
+      "gemini": "29.2s",
+      "ollama": "78.2s"
+    }
+  ]
+}

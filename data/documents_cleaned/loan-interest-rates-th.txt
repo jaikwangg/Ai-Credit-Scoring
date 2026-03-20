@@ -1,7 +1,7 @@
 TITLE: อัตราดอกเบี้ยเงินกู้ | อัตราและค่าธรรมเนียม | CIMB TH
 SOURCE URL: https://www.cimbthai.com/th/personal/help-support/rates-charges/loan-interest-rates.html
 INSTITUTION: CIMB Thai
-PUBLICATION DATE: 2025-12-29T08:31:17+00:00
+PUBLICATION DATE: 2026-03-19T00:00:00+00:00
 CATEGORY: interest_structure
 ---
 SUMMARY
@@ -10,6 +10,8 @@ SUMMARY
 FULL CLEANED TEXT CONTENT
 วันที่
 รายการ
+11/03/69
+อัตราดอกเบี้ยเงินให้สินเชื่อ ครั้งที่ 1/2569 มีผลตั้งแต่วันที่ 11 มีนาคม 2569
 29/12/68
 อัตราดอกเบี้ยเงินให้สินเชื่อ ครั้งที่ 4/2568 มีผลตั้งแต่วันที่ 6 มกราคม 2569
 21/08/68

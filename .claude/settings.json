@@ -42,7 +42,23 @@
       "Bash(grep -v \"Loading weights\\\\|it/s\\\\|Materializing\\\\|^$\")",
       "Read(//tmp/**)",
       "Bash(python -c \"from src.planner.scoring import compute_plan_inputs; print\\(''OK''\\)\")",
-      "Bash(python -c \"from src.api.routes.rag import router; print\\(''OK''\\)\")"
+      "Bash(python -c \"from src.api.routes.rag import router; print\\(''OK''\\)\")",
+      "Bash(grep \"\\\\.txt$\")",
+      "Bash(grep -h \"^SOURCE URL:\" \"c:/Users/Kanna/OneDrive/Documents/GitHub/Ai-Credit-Scoring/data/documents_cleaned/\"*.txt)",
+      "WebFetch(domain:www.cimbthai.com)",
+      "Bash(curl -o /dev/null -s -w \"%{http_code} %{url_effective}\\\\n\" --max-time 15 -L \"https://www.cimbthai.com/content/dam/cimbth/personal/documents/form-download-center/2025/%E0%B9%83%E0%B8%9A%E0%B8%84%E0%B8%B3%E0%B8%82%E0%B8%AD%E0%B8%9B%E0%B8%A3%E0%B8%B1%E0%B8%9A%E0%B8%9B%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%82%E0%B8%84%E0%B8%A3%E0%B8%87%E0%B8%AA%E0%B8%A3%E0%B9%89%E0%B8%B2%E0%B8%87%E0%B8%AB%E0%B8%99%E0%B8%B5%E0%B9%89_%E0%B8%82%E0%B8%A2%E0%B8%B2%E0%B8%A2%E0%B8%A3%E0%B8%B0%E0%B8%A2%E0%B8%B0%E0%B9%80%E0%B8%A7%E0%B8%A5%E0%B8%B2%E0%B8%9C%E0%B9%88%E0%B8%AD%E0%B8%99%E0%B8%8A%E0%B8%B3%E0%B8%A3%E0%B8%B0_04092025update.pdf\")",
+      "Bash(PDF_DIR=C:/Users/Kanna/.claude/projects/c--Users-Kanna-OneDrive-Documents-GitHub-Ai-Credit-Scoring/0ab16e1c-ab64-4278-a0da-da93b97cd3b6/tool-results ls $PDF_DIR/*.pdf)",
+      "Bash(source venv/Scripts/activate)",
+      "Bash(python -:*)",
+      "Bash(python -c \"import pdfplumber; print\\(''pdfplumber ok''\\)\")",
+      "Bash(python -c \"import PyPDF2; print\\(''PyPDF2 ok''\\)\")",
+      "Bash(BASE=\"C:/Users/Kanna/.claude/projects/c--Users-Kanna-OneDrive-Documents-GitHub-Ai-Credit-Scoring/0ab16e1c-ab64-4278-a0da-da93b97cd3b6/tool-results\")",
+      "Read(//c/Users/Kanna/OneDrive/Documents/GitHub/Ai-Credit-Scoring/$BASE/**)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(tesseract --version)",
+      "Bash(choco --version)",
+      "Bash(winget --version)"
     ]
   }
 }

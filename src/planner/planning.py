@@ -843,9 +843,9 @@ def _issup_check_plan(result_th: str, actions: List[dict]) -> Optional[int]:
         import re as _re
         raw = str(llm.complete(prompt)).strip()
         match = _re.search(r"[1-5]", raw)
-        return int(match.group()) if match else 3
+        return int(match.group()) if match else None
     except Exception:
-        return 3
+        return None
 
 
 def generate_response(
