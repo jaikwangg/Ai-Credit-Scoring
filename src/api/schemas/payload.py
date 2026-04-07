@@ -55,6 +55,23 @@ class PlannerAdvice(BaseModel):
     rag_sources: List[Dict[str, Any]] = Field(default_factory=list, description="RAG evidence used in advice.")
 
 
+class PlannerResult(BaseModel):
+    mode: str = Field("", description="'approved_guidance' or 'improvement_plan'")
+    decision: Dict[str, Any] = Field(default_factory=dict, description="Normalized decision object from planner.")
+    result_th: str = Field("", description="Planner-rendered Thai text.")
+    plan: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Structured improvement plan (present on improvement_plan mode).",
+    )
+    issup_score: Optional[int] = Field(None, description="[IsSup] groundedness score (when enabled).")
+    issup_passed: Optional[bool] = Field(None, description="True when IsSup score passes threshold.")
+
+
+class RAGResult(BaseModel):
+    source_count: int = Field(0, description="Number of RAG evidence sources attached to the planner output.")
+    sources: List[Dict[str, Any]] = Field(default_factory=list, description="RAG evidence objects returned to frontend.")
+
+
 class ScoringResponse(BaseModel):
     request_id: str = Field(..., description="Echoes the request trace ID.")
     approved: bool = Field(..., description="Binary classification result (approve/reject).")
@@ -65,6 +82,8 @@ class ScoringResponse(BaseModel):
     )
     explanations: ModelExplanations
     advice: Optional[PlannerAdvice] = Field(None, description="Thai-language advice from planner+RAG.")
+    planner: Optional[PlannerResult] = Field(None, description="Structured planner payload for frontend rendering.")
+    rag: Optional[RAGResult] = Field(None, description="Structured RAG payload for frontend rendering.")
 
 
 # -----------------------------------
