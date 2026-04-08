@@ -88,10 +88,13 @@ def decompose_question(question: str, profile_text: str = "") -> List[str]:
         profile_block=profile_block,
     )
 
+    # Lazy import to avoid circular dep with advisor.py
+    from src.rag.advisor import llm_complete_retry
+
     try:
-        raw = str(llm.complete(prompt))
+        raw = llm_complete_retry(prompt, llm=llm, label="decompose")
     except Exception as exc:
-        logger.warning("Decomposition LLM call failed: %s", exc)
+        logger.warning("Decomposition LLM call failed after retries: %s", exc)
         return [question]
 
     parsed = _extract_json(raw)
@@ -170,11 +173,16 @@ def multihop_retrieve(
     sub_questions = decompose_question(question, profile_text=profile_text)
     logger.info("Multi-hop decomposition: %d sub-questions", len(sub_questions))
 
+    # Lazy import to avoid circular dep with advisor.py
+    from src.rag.advisor import safe_rag_query
+
     per_hop: List[List[Dict[str, Any]]] = []
     per_hop_counts: List[int] = []
     for sq in sub_questions:
         try:
-            result = rag_manager.query(sq, similarity_top_k=top_k_per_hop, include_sources=True)
+            result = safe_rag_query(
+                rag_manager, sq, similarity_top_k=top_k_per_hop, include_sources=True
+            )
             srcs = result.get("sources", []) or []
         except Exception as exc:
             logger.warning("Multi-hop retrieval failed for %r: %s", sq[:60], exc)

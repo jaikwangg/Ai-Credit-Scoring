@@ -1,0 +1,4 @@
+approach,n,latency_mean,checks_mean,pass,fail,unknown,actions,sources,kw_recall,kw_recall_n,verdict_acc,verdict_acc_n,issup_mean,issup_n,sub_q_mean
+"A1 — Profile-conditioned (single-hop)",25,41.0188,5.3200,3.4800,0.4800,1.1200,3.3600,9.1200,0.9028,24,0.5556,18,,0,
+"A2 — A1 + Multi-hop decomposition",27,64.8604,5.4074,3.3704,0.5185,1.3704,3.4815,9.0370,0.8533,25,0.6842,19,,0,2.1111
+"A3 — A2 + Self-RAG reflection",31,85.6348,5.3871,3.0000,0.5161,1.5161,3.5484,8.6774,0.7889,30,0.4583,24,3.3043,23,2.2581

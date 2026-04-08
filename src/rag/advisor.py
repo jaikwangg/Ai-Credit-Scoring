@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 import time
 from typing import Any, Dict, List, Optional
@@ -33,6 +34,91 @@ from src.api.schemas.payload import (
 from src.rag.multihop import multihop_retrieve
 
 logger = logging.getLogger(__name__)
+
+
+# Retry config for LLM calls. Gemini Free Tier returns 503 UNAVAILABLE under
+# load — without retries 30-45% of multi-hop / Self-RAG records fail because
+# they fire 5-7 LLM calls per query.
+_RETRY_BACKOFFS = [2.0, 5.0, 10.0, 20.0, 40.0]
+_TRANSIENT_TOKENS = (
+    "503",
+    "UNAVAILABLE",
+    "RESOURCE_EXHAUSTED",
+    "rate limit",
+    "rate_limit",
+    "high demand",
+    "overloaded",
+    "deadline exceeded",
+    "DEADLINE_EXCEEDED",
+    "504",
+    "429",
+)
+
+
+def _is_transient_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(tok.lower() in msg for tok in _TRANSIENT_TOKENS)
+
+
+def llm_complete_retry(prompt: str, *, llm: Any = None, label: str = "llm") -> str:
+    """Call ``llm.complete(prompt)`` with exponential backoff on transient errors.
+
+    Returns the raw text response. Raises the last exception if all retries fail.
+    """
+    if llm is None:
+        llm = getattr(Settings, "llm", None)
+    if llm is None:
+        raise RuntimeError("Settings.llm is not configured")
+
+    last_exc: Optional[Exception] = None
+    for attempt in range(len(_RETRY_BACKOFFS) + 1):
+        try:
+            return str(llm.complete(prompt))
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if not _is_transient_error(exc) or attempt >= len(_RETRY_BACKOFFS):
+                raise
+            wait = _RETRY_BACKOFFS[attempt] + random.uniform(0, 1.5)
+            logger.warning(
+                "[%s] transient LLM error (attempt %d/%d): %s — retrying in %.1fs",
+                label,
+                attempt + 1,
+                len(_RETRY_BACKOFFS) + 1,
+                str(exc)[:160],
+                wait,
+            )
+            time.sleep(wait)
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("llm_complete_retry exhausted all attempts")
+
+
+def safe_rag_query(rag_manager: Any, question: str, **kwargs: Any) -> Dict[str, Any]:
+    """Wrap rag_manager.query() with the same transient retry policy.
+
+    The underlying llama_index synthesis path also calls Gemini and can hit
+    503s. We retry the whole query call.
+    """
+    last_exc: Optional[Exception] = None
+    for attempt in range(len(_RETRY_BACKOFFS) + 1):
+        try:
+            return rag_manager.query(question, **kwargs)
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if not _is_transient_error(exc) or attempt >= len(_RETRY_BACKOFFS):
+                raise
+            wait = _RETRY_BACKOFFS[attempt] + random.uniform(0, 1.5)
+            logger.warning(
+                "[rag_query] transient error (attempt %d/%d): %s — retrying in %.1fs",
+                attempt + 1,
+                len(_RETRY_BACKOFFS) + 1,
+                str(exc)[:160],
+                wait,
+            )
+            time.sleep(wait)
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("safe_rag_query exhausted all attempts")
 
 
 # IsSup reflection prompt — borrowed from src/rag/self_rag.py and adapted for
@@ -226,9 +312,9 @@ def _issup_score(question: str, context_text: str, advisor_json: str) -> Optiona
         answer=advisor_json[:3000],
     )
     try:
-        raw = str(llm.complete(prompt)).strip()
+        raw = llm_complete_retry(prompt, llm=llm, label="issup").strip()
     except Exception as exc:
-        logger.warning("IsSup reflection failed: %s", exc)
+        logger.warning("IsSup reflection failed (after retries): %s", exc)
         return None
     match = re.search(r"[1-5]", raw)
     return int(match.group()) if match else None
@@ -270,7 +356,9 @@ def run_advisor(
         trace.sources_per_hop = hop_result["per_hop_counts"]
         trace.total_sources_after_dedup = len(raw_sources)
     else:
-        rag_result = rag_manager.query(question, similarity_top_k=top_k, include_sources=True)
+        rag_result = safe_rag_query(
+            rag_manager, question, similarity_top_k=top_k, include_sources=True
+        )
         raw_sources = rag_result.get("sources", []) or []
         trace.total_sources_after_dedup = len(raw_sources)
 
@@ -307,9 +395,9 @@ def run_advisor(
         )
 
     try:
-        raw_answer = str(llm.complete(prompt))
+        raw_answer = llm_complete_retry(prompt, llm=llm, label="advisor_main")
     except Exception as exc:
-        logger.error("Advisor LLM call failed: %s", exc)
+        logger.error("Advisor LLM call failed after retries: %s", exc)
         return AdvisorResponse(
             question=question,
             verdict="needs_more_info",
@@ -376,8 +464,8 @@ def run_advisor(
             logger.info("Advisor IsSup score=%d, retrying with wider retrieval", score)
             trace.self_rag_retried = True
             try:
-                wider = rag_manager.query(
-                    question, similarity_top_k=top_k * 2, include_sources=True
+                wider = safe_rag_query(
+                    rag_manager, question, similarity_top_k=top_k * 2, include_sources=True
                 )
                 wider_sources = wider.get("sources", []) or []
                 if len(wider_sources) > len(raw_sources):
@@ -398,7 +486,9 @@ def run_advisor(
                         profile=profile_block,
                         context=context_block_2,
                     )
-                    raw_answer_2 = str(llm.complete(prompt_2))
+                    raw_answer_2 = llm_complete_retry(
+                        prompt_2, llm=llm, label="advisor_retry"
+                    )
                     parsed_2 = _extract_json(raw_answer_2)
                     if parsed_2:
                         verdict_2 = _normalize_verdict(str(parsed_2.get("verdict", "")))
