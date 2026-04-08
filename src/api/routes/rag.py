@@ -10,10 +10,12 @@ from src.api.schemas.payload import (
     SimplePlanRequest, ExternalPlanResponse,
     SimulationRequest, SimulationResponse, ScenarioResult,
     BatchItem, BatchPlanRequest, BatchPlanResponse, BatchItemResult, BatchSummary,
+    AdvisorRequest, AdvisorResponse,
 )
 from src.planner.rag_bridge import extract_rag_sources, get_rag_manager, make_rag_lookup
 from src.planner.planning import generate_response
 from src.planner.scoring import compute_plan_inputs
+from src.rag.advisor import run_advisor
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -127,6 +129,44 @@ async def rag_query_self(payload: RAGQueryRequest):
         validated_count=result.get("validated_node_count", 0),
         self_rag_trace=trace,
     )
+
+
+# ---------------------------------------------------------------------------
+# Profile-conditioned advisory (Approach 1)
+# ---------------------------------------------------------------------------
+
+@router.post("/rag/advisor", response_model=AdvisorResponse)
+async def rag_advisor(payload: AdvisorRequest):
+    """
+    Profile-conditioned RAG advisory.
+
+    Unlike /rag/query which paraphrases retrieved chunks, this endpoint runs
+    structured eligibility reasoning: it asks the LLM to extract requirements
+    from policy chunks and evaluate them against the user's actual profile,
+    returning a per-requirement pass/fail breakdown.
+
+    Designed for the credit-advisory thesis use case where the user wants to
+    know whether they qualify, not just what the policy says.
+    """
+    manager = get_rag_manager()
+    if manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="RAG index unavailable. Run: uv run python -m src.ingest",
+        )
+
+    try:
+        result = run_advisor(
+            question=payload.question,
+            profile=payload.profile,
+            rag_manager=manager,
+            top_k=payload.top_k or 6,
+        )
+    except Exception as exc:
+        logger.error("Advisor failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Advisor failed: {exc}")
+
+    return result
 
 
 # ---------------------------------------------------------------------------

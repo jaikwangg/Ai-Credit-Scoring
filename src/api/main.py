@@ -3,6 +3,12 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import logging
 
+# Patch asyncio so sync wrappers (e.g. llama_index QueryEngine.query) can call
+# the async GoogleGenAI / Gemini SDK from inside FastAPI's running event loop.
+# Without this: "asyncio.run() cannot be called from a running event loop".
+import nest_asyncio
+nest_asyncio.apply()
+
 from src.api.routes import scoring, rag
 from src.db.database import engine
 from src.db import models

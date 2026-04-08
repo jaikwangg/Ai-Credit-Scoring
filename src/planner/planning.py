@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import os
 import re
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -83,7 +84,50 @@ APPROVED_CHECKLIST_QUERIES: List[Tuple[str, str]] = [
     ("รายได้ขั้นต่ำ", "รายได้ขั้นต่ำเท่าไหร่ถึงจะกู้บ้านได้"),
 ]
 
+# Fallback content used when RAG returns NO_ANSWER (e.g. Ollama OOM, similarity miss).
+# Content is standard practice across Thai retail banks — safe to display without citation.
+APPROVED_CHECKLIST_FALLBACKS: Dict[str, str] = {
+    "เอกสารสมัคร": (
+        "บัตรประชาชน + ทะเบียนบ้าน, สลิปเงินเดือนย้อนหลัง 3-6 เดือน, "
+        "Statement บัญชีเงินเดือนย้อนหลัง 6 เดือน, หนังสือรับรองการทำงาน, "
+        "เอกสารหลักประกัน (โฉนด/สัญญาจะซื้อจะขาย) และแบบฟอร์มคำขอสินเชื่อของธนาคาร"
+    ),
+    "คุณสมบัติเบื้องต้น": (
+        "อายุ 20-65 ปี, สัญชาติไทย, มีรายได้ประจำหรือธุรกิจที่มั่นคง, "
+        "อายุงานปัจจุบันอย่างน้อย 6 เดือน-1 ปี, ไม่มีประวัติค้างชำระรุนแรงในเครดิตบูโร"
+    ),
+    "รายได้ขั้นต่ำ": (
+        "ทั่วไปธนาคารกำหนดรายได้ขั้นต่ำ 15,000-30,000 บาท/เดือนสำหรับสินเชื่อบ้าน "
+        "และพิจารณาให้ภาระผ่อนรวมไม่เกิน 40-50% ของรายได้ (DTI) "
+        "วงเงินอนุมัติมักอยู่ที่ 30-50 เท่าของรายได้ต่อเดือน"
+    ),
+}
+
 PRESENTER_GROUP_ORDER = ["debt_distress", "loan_structure", "rate_options", "credit_behavior", "docs_income", "other"]
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _env_int(name: str, default: int, min_value: int, max_value: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(max_value, value))
+
+
+PLANNER_ENABLE_LLM_SYNTHESIS = _env_bool("PLANNER_ENABLE_LLM_SYNTHESIS", False)
+PLANNER_MAX_ACTION_DRIVERS = _env_int("PLANNER_MAX_ACTION_DRIVERS", 3, 1, 10)
+PLANNER_MAX_RAG_QUERIES_PER_DRIVER = _env_int("PLANNER_MAX_RAG_QUERIES_PER_DRIVER", 1, 0, 3)
+PLANNER_APPROVED_MAX_RAG_QUERIES = _env_int("PLANNER_APPROVED_MAX_RAG_QUERIES", 2, 0, 3)
 
 
 def _to_float(value: Any, default: Optional[float] = None) -> Optional[float]:
@@ -307,7 +351,7 @@ def build_actions(
 ) -> list[dict]:
     del user_input  # Reserved for future feature-level customization.
 
-    top_negative = shap_summary.get("top_negative", []) or []
+    top_negative = (shap_summary.get("top_negative", []) or [])[:PLANNER_MAX_ACTION_DRIVERS]
     actions: List[dict] = []
 
     for item in top_negative:
@@ -318,7 +362,7 @@ def build_actions(
         shap_value = _to_float(item.get("shap"), default=0.0) or 0.0
         label_th = item.get("label_th") or FEATURE_LABELS_TH.get(feature, feature)
 
-        queries = DRIVER_QUERY_MAP.get(feature, [])
+        queries = DRIVER_QUERY_MAP.get(feature, [])[:PLANNER_MAX_RAG_QUERIES_PER_DRIVER]
         selected_answer = ""
         selected_evidence: List[dict] = []
 
@@ -631,15 +675,23 @@ def _build_approved_checklist(
     lines.append(f"P(อนุมัติ)={p_approve:.3f} | P(ปฏิเสธ)={p_reject:.3f}")
     lines.append("รายการเอกสาร/ข้อมูลที่จำเป็นสำหรับการยื่นขอสินเชื่อ")
 
-    for idx, (title, query) in enumerate(APPROVED_CHECKLIST_QUERIES, start=1):
+    checklist_queries = APPROVED_CHECKLIST_QUERIES[:PLANNER_APPROVED_MAX_RAG_QUERIES]
+
+    for idx, (title, query) in enumerate(checklist_queries, start=1):
         answer, evidence = _rag_fetch(rag_lookup, query)
         if answer and answer != NO_ANSWER_SENTINEL:
-            line = f"{idx}) {title}: {_trim_text(answer, 150)}"
+            line = f"{idx}) {title}: {_trim_text(answer, 200)}"
+            if evidence:
+                line += f" (แหล่งข้อมูล: {evidence[0].get('source_title', 'N/A')})"
         else:
-            line = f"{idx}) {title}: {NO_ANSWER_SENTINEL}"
-
-        if evidence:
-            line += f" (แหล่งข้อมูล: {evidence[0].get('source_title', 'N/A')})"
+            # RAG missed (Ollama OOM, low similarity, etc.) — render general Thai
+            # banking knowledge instead of the NO_ANSWER sentinel so the user sees
+            # actionable content. Mark it clearly as general guidance.
+            fallback = APPROVED_CHECKLIST_FALLBACKS.get(title, "")
+            if fallback:
+                line = f"{idx}) {title}: {fallback} [คำแนะนำทั่วไป]"
+            else:
+                line = f"{idx}) {title}: {GENERAL_ONLY_NOTE}"
         lines.append(line)
 
     lines.append("หมายเหตุ: ผลลัพธ์นี้จัดทำโดยแบบจำลองทางสถิติเพื่อวัตถุประสงค์ทางการวิจัย มิใช่การพิจารณาสินเชื่อจริงจากสถาบันการเงิน")
@@ -859,7 +911,8 @@ def generate_response(
 
     if decision["approved"]:
         checklist_text = _build_approved_checklist(decision, rag_lookup)
-        result_th = _llm_synthesize_approved(decision, checklist_text, user_input) or checklist_text
+        llm_text = _llm_synthesize_approved(decision, checklist_text, user_input) if PLANNER_ENABLE_LLM_SYNTHESIS else ""
+        result_th = llm_text or checklist_text
         return {
             "mode": "approved_guidance",
             "decision": decision,
@@ -872,7 +925,7 @@ def generate_response(
         shap_json=shap_json,
         rag_lookup=rag_lookup,
     )
-    llm_result = _llm_synthesize_plan(plan, user_input)
+    llm_result = _llm_synthesize_plan(plan, user_input) if PLANNER_ENABLE_LLM_SYNTHESIS else ""
     issup_score: Optional[int] = None
     issup_passed: Optional[bool] = None
     if llm_result and use_issup:

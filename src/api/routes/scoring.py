@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from src.api.schemas.payload import (
     ScoringRequest, ScoringResponse, ModelExplanations, PlannerAdvice,
+    PlannerResult, RAGResult,
     ExternalPlanRequest, ExternalPlanResponse,
 )
 from src.db.database import get_db
@@ -47,6 +48,8 @@ async def request_credit_score(
         
         # Step 3: Planner + RAG advice
         advice: Optional[PlannerAdvice] = None
+        planner_payload: Optional[PlannerResult] = None
+        rag_payload: Optional[RAGResult] = None
         try:
             manager = get_rag_manager()
             rag_lookup = make_rag_lookup(manager.query) if manager else None
@@ -71,6 +74,18 @@ async def request_credit_score(
                 result_th=plan_result.get("result_th", ""),
                 rag_sources=rag_sources,
             )
+            planner_payload = PlannerResult(
+                mode=plan_result.get("mode", ""),
+                decision=plan_result.get("decision", {}),
+                result_th=plan_result.get("result_th", ""),
+                plan=plan_result.get("plan"),
+                issup_score=plan_result.get("issup_score"),
+                issup_passed=plan_result.get("issup_passed"),
+            )
+            rag_payload = RAGResult(
+                source_count=len(rag_sources),
+                sources=rag_sources,
+            )
         except Exception as exc:
             logger.warning("Planner advice generation failed (non-fatal): %s", exc)
 
@@ -84,6 +99,8 @@ async def request_credit_score(
                 tree_shap_values=model_result["shap_values"]
             ),
             advice=advice,
+            planner=planner_payload,
+            rag=rag_payload,
         )
         
         # Step 5: Persist to Operational DB

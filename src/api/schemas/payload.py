@@ -55,6 +55,23 @@ class PlannerAdvice(BaseModel):
     rag_sources: List[Dict[str, Any]] = Field(default_factory=list, description="RAG evidence used in advice.")
 
 
+class PlannerResult(BaseModel):
+    mode: str = Field("", description="'approved_guidance' or 'improvement_plan'")
+    decision: Dict[str, Any] = Field(default_factory=dict, description="Normalized decision object from planner.")
+    result_th: str = Field("", description="Planner-rendered Thai text.")
+    plan: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Structured improvement plan (present on improvement_plan mode).",
+    )
+    issup_score: Optional[int] = Field(None, description="[IsSup] groundedness score (when enabled).")
+    issup_passed: Optional[bool] = Field(None, description="True when IsSup score passes threshold.")
+
+
+class RAGResult(BaseModel):
+    source_count: int = Field(0, description="Number of RAG evidence sources attached to the planner output.")
+    sources: List[Dict[str, Any]] = Field(default_factory=list, description="RAG evidence objects returned to frontend.")
+
+
 class ScoringResponse(BaseModel):
     request_id: str = Field(..., description="Echoes the request trace ID.")
     approved: bool = Field(..., description="Binary classification result (approve/reject).")
@@ -65,6 +82,8 @@ class ScoringResponse(BaseModel):
     )
     explanations: ModelExplanations
     advice: Optional[PlannerAdvice] = Field(None, description="Thai-language advice from planner+RAG.")
+    planner: Optional[PlannerResult] = Field(None, description="Structured planner payload for frontend rendering.")
+    rag: Optional[RAGResult] = Field(None, description="Structured RAG payload for frontend rendering.")
 
 
 # -----------------------------------
@@ -147,6 +166,62 @@ class RAGQueryRequest(BaseModel):
     """Request schema for POST /rag/query"""
     question: str = Field(..., description="Question to ask the RAG system.")
     top_k: Optional[int] = Field(None, description="Number of documents to retrieve (default: settings.SIMILARITY_TOP_K).")
+
+
+class AdvisorProfile(BaseModel):
+    """User profile for profile-conditioned advisory.
+
+    All fields optional — the advisor uses whichever fields are present
+    and ignores missing ones (thin-file applicants typically lack many).
+    """
+    salary_per_month: Optional[float] = Field(None, description="Monthly income in THB.")
+    occupation: Optional[str] = Field(None, description="Employment type/job title.")
+    employment_tenure_months: Optional[int] = Field(None, description="Months at current job.")
+    marriage_status: Optional[str] = Field(None, description="Single / Married / Divorced / Widowed.")
+    has_coapplicant: Optional[bool] = Field(None, description="Whether there is a co-borrower.")
+    coapplicant_income: Optional[float] = Field(None, description="Co-borrower monthly income.")
+    credit_score: Optional[int] = Field(None, description="Bureau credit score (300-850 range).")
+    credit_grade: Optional[str] = Field(None, description="Credit grade letter (AA/BB/CC/DD/FF).")
+    outstanding_debt: Optional[float] = Field(None, description="Total outstanding debt in THB.")
+    overdue_amount: Optional[float] = Field(None, description="Past-due amount in THB.")
+    loan_amount_requested: Optional[float] = Field(None, description="Requested loan amount in THB.")
+    loan_term_years: Optional[float] = Field(None, description="Requested loan term in years.")
+    interest_rate: Optional[float] = Field(None, description="Quoted interest rate %.")
+
+
+class AdvisorRequest(BaseModel):
+    """Request schema for POST /rag/advisor — profile-conditioned reasoning.
+
+    Unlike /rag/query which only paraphrases retrieved chunks, this endpoint
+    asks the LLM to:
+      1. Extract eligibility requirements from the retrieved policy chunks
+      2. Compare each requirement against the supplied user profile
+      3. Return structured pass/fail per requirement + overall verdict + advice
+
+    This is the difference between "extractive QA" and actual "advisory reasoning".
+    """
+    question: str = Field(..., description="The user's natural-language question.")
+    profile: AdvisorProfile = Field(..., description="Applicant profile to evaluate against the policy.")
+    top_k: Optional[int] = Field(6, description="Number of policy chunks to retrieve.")
+
+
+class AdvisorRequirementCheck(BaseModel):
+    """One eligibility requirement evaluated against a profile."""
+    requirement: str = Field(..., description="The requirement extracted from policy (Thai).")
+    user_value: str = Field(..., description="The user's value for this requirement (or 'ไม่ระบุ').")
+    status: str = Field(..., description="pass | fail | unknown | not_applicable")
+    explanation: str = Field(..., description="Why this status — references policy text.")
+
+
+class AdvisorResponse(BaseModel):
+    """Response from POST /rag/advisor"""
+    question: str
+    verdict: str = Field(..., description="overall: eligible | partially_eligible | ineligible | needs_more_info")
+    verdict_summary: str = Field(..., description="Short Thai summary of the verdict and reason.")
+    requirement_checks: List[AdvisorRequirementCheck] = Field(default_factory=list)
+    recommended_actions: List[str] = Field(default_factory=list, description="Next steps the user can take to improve eligibility.")
+    sources: List[RAGSource] = Field(default_factory=list)
+    raw_answer: Optional[str] = Field(None, description="Raw LLM output for debugging.")
 
 
 class SelfRAGTraceSchema(BaseModel):

@@ -763,6 +763,14 @@ def clean_scraped_text(text: str, title: str = "", apply_body_extraction: bool =
     cleaned = "\n".join(deduped)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    # Strip residual web-chrome markers leaked through HTML extraction:
+    # - Internal CIMB nav paths: "/help-support/...", "/personal/loans/..."
+    # - Bare .html file references that survived link removal
+    # These add no semantic value and pollute embeddings (16/142 chunks
+    # contained URL noise per audit).
+    cleaned = re.sub(r"\b/[a-z0-9\-/_]+\.html\b", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bhttps?://\S+", "", cleaned)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
     return cleaned.strip()
 
 
@@ -1274,36 +1282,33 @@ class StructuredDocumentParser:
             metadata["body_anchor"] = str(extraction_meta.get("anchor", ""))
             metadata["body_anchor_idx"] = int(extraction_meta.get("start_idx", 0))
 
-            enhanced_text = (
-                f"TITLE: {metadata.get('title', 'N/A')}\n"
-                f"CLEANING_VERSION: {CLEANING_VERSION}\n"
-                f"SOURCE URL: {metadata.get('source_url', 'N/A')}\n"
-                f"INSTITUTION: {metadata.get('institution', 'N/A')}\n"
-                f"PUBLICATION DATE: {metadata.get('publication_date', 'N/A')}\n"
-                f"CATEGORY: {metadata.get('category', 'N/A')}\n"
-                f"DOC KIND: {metadata.get('doc_kind', 'unknown')}\n"
-                f"PRODUCT TYPE: {metadata.get('product_type', 'home_loan')}\n"
-                f"DOMAIN: {metadata.get('domain', 'loan')}\n"
-                f"EFFECTIVE YEAR: {metadata.get('effective_year', 'N/A')}\n"
-                f"TOPIC: {metadata.get('topic', 'unrelated')}\n"
-                f"TOPIC TAGS: {metadata.get('topic_tags', '')}\n"
-                f"RELEVANCE SCORE: {metadata.get('relevance_score', 0.0)}\n"
-                f"QUARANTINED: {metadata.get('quarantined', False)}\n"
-                f"RELEVANCE REASON: {metadata.get('relevance_reason', '')}\n"
-                f"---\n"
-                f"SUMMARY\n"
-                f"{summary_text}\n"
-                f"---\n"
-                f"FULL CLEANED TEXT CONTENT\n"
-                f"{cleaned_content}"
-            )
+            # Document body is ONLY the cleaned content. Previously this
+            # function stuffed all metadata as a TITLE/CLEANING_VERSION/SOURCE
+            # header into the text body, which caused 20% of chunks to leak
+            # those header lines into the embedding (audit confirmed). Metadata
+            # now lives in Document.metadata where it belongs, and LlamaIndex
+            # will surface only `title` and `category` to the embedder via
+            # `text_template`/`metadata_template` so each chunk still carries
+            # retrieval context, without polluting the body.
+            metadata["summary"] = summary_text
 
-            return Document(
-                text=enhanced_text,
+            doc = Document(
+                text=cleaned_content,
                 metadata=metadata,
-                excluded_embed_metadata_keys=list(metadata.keys()),
-                excluded_llm_metadata_keys=list(metadata.keys()),
+                # Inject title + category as a tiny prefix on each chunk so the
+                # embedder knows what document it came from. All other metadata
+                # is hidden from embed and LLM.
+                text_template="[{metadata_str}]\n{content}",
+                metadata_template="{key}: {value}",
+                metadata_seperator=" | ",
+                excluded_embed_metadata_keys=[
+                    k for k in metadata.keys() if k not in ("title", "category")
+                ],
+                excluded_llm_metadata_keys=[
+                    k for k in metadata.keys() if k not in ("title", "category")
+                ],
             )
+            return doc
 
         except Exception as exc:
             print(f"Error parsing {file_path}: {exc}")

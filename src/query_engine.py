@@ -538,6 +538,11 @@ def _build_llm():
             base_url=settings.OLLAMA_BASE_URL,
             temperature=0.1,
             request_timeout=120.0,
+            context_window=settings.OLLAMA_NUM_CTX,
+            additional_kwargs={
+                "num_ctx": settings.OLLAMA_NUM_CTX,
+                "num_predict": settings.OLLAMA_NUM_PREDICT,
+            },
         )
 
     # ------------------------------------------------------------------
@@ -786,8 +791,10 @@ class QueryEngineManager:
         router_label = route_query(question)
         metadata_filters = build_metadata_filters(router_label)
         requested_top_k = similarity_top_k or self.similarity_top_k
-        retrieval_top_k = 30
-        final_top_k = 8
+        # Tunable via env so low-RAM machines can shrink the LLM prompt.
+        # Defaults: retrieve 12 candidates, synthesize from top 3 — keeps prompt small.
+        retrieval_top_k = int(os.getenv("RAG_RETRIEVAL_TOP_K", "12"))
+        final_top_k = int(os.getenv("RAG_FINAL_TOP_K", "3"))
         disable_sim_cutoff = _env_flag("RAG_DISABLE_SIM_CUTOFF", default=False)
         route_cutoff = _route_cutoff(router_label, self.similarity_cutoff)
 

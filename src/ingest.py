@@ -72,25 +72,26 @@ def _get_storage_context() -> StorageContext:
 
 
 def _verify_cleaning_fingerprint(index: VectorStoreIndex) -> bool:
+    """Verify that nodes in the index were produced by the current parser version.
+
+    The CLEANING_VERSION used to live as a text-body header inside every chunk,
+    which polluted embeddings (~20% of chunks leaked metadata). It now lives
+    only in `Document.metadata['cleaning_version']`. Verification therefore
+    runs a generic semantic query and inspects each retrieved node's metadata.
+    """
     try:
         retriever = index.as_retriever(similarity_top_k=5)
-        nodes = retriever.retrieve("CLEANING_VERSION")
+        nodes = retriever.retrieve("สินเชื่อบ้าน CIMB")
     except Exception as exc:
         print(f"WARNING: Fingerprint sanity query failed: {exc}")
         return False
 
-    fingerprint_line = f"CLEANING_VERSION: {CLEANING_VERSION}"
     for node in nodes or []:
-        text = getattr(node, "text", None)
-        if not isinstance(text, str):
-            inner = getattr(node, "node", None)
-            text = getattr(inner, "text", "") if inner is not None else ""
         metadata = getattr(node, "metadata", None)
         if not isinstance(metadata, dict):
             inner = getattr(node, "node", None)
             metadata = getattr(inner, "metadata", {}) if inner is not None else {}
-
-        if fingerprint_line in str(text) or str(metadata.get("cleaning_version", "")) == CLEANING_VERSION:
+        if str(metadata.get("cleaning_version", "")) == CLEANING_VERSION:
             return True
     return False
 

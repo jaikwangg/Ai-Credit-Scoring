@@ -19,6 +19,10 @@ class Settings:
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3:8b")
     USE_OLLAMA: bool = os.getenv("USE_OLLAMA", "true").lower() == "true"
+    # Cap Ollama context window so RAM usage is bounded on small machines.
+    # Phi/Gemma default num_ctx can be 16k-128k → blows up RAM. Use 4096 to be safe.
+    OLLAMA_NUM_CTX: int = int(os.getenv("OLLAMA_NUM_CTX", "4096"))
+    OLLAMA_NUM_PREDICT: int = int(os.getenv("OLLAMA_NUM_PREDICT", "512"))
 
     # OpenAI Settings
     MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
@@ -37,8 +41,22 @@ class Settings:
     
     # Directory Paths
     PROJECT_ROOT: Path = Path(__file__).parent.parent
+
+    # DOCUMENTS_DIR can be overridden via DATA_DIR env var (path is resolved
+    # relative to PROJECT_ROOT when given as a relative path). Historically
+    # this was hardcoded to data/documents/ which caused silent drift from
+    # the .env file. Now it respects DATA_DIR env.
+    @staticmethod
+    def _resolve_documents_dir() -> Path:
+        project_root = Path(__file__).parent.parent
+        raw = os.getenv("DATA_DIR", "./data/documents").strip()
+        p = Path(raw)
+        if not p.is_absolute():
+            p = (project_root / p).resolve()
+        return p
+
     DATA_DIR: Path = PROJECT_ROOT / "data"
-    DOCUMENTS_DIR: Path = DATA_DIR / "documents"
+    DOCUMENTS_DIR: Path = _resolve_documents_dir()
     INDEX_DIR: Path = PROJECT_ROOT / "data" / "index"
     
     # Vector Store Settings

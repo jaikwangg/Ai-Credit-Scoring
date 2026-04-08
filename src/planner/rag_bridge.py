@@ -53,8 +53,12 @@ def make_rag_lookup(
             logger.warning("RAG lookup failed for query %r: %s", query[:60], exc)
             return {"answer": "", "sources": []}
 
-        # Only cache non-empty answers
-        if cache is not None and data.get("answer"):
+        # Only cache results that have BOTH an answer AND sources. Caching an
+        # answer with empty sources poisons the cache: the planner would then
+        # receive sourceless responses on every subsequent hit, even after the
+        # underlying RAG index improves. Require sources so evidence is always
+        # attachable to action items.
+        if cache is not None and data.get("answer") and data.get("sources"):
             cache.set(query, data)
 
         return data
