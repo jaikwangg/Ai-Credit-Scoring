@@ -18,18 +18,45 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Any, Dict, List, Optional
 
 from llama_index.core.settings import Settings
 
 from src.api.schemas.payload import (
     AdvisorProfile,
+    AdvisorReasoningTrace,
     AdvisorRequirementCheck,
     AdvisorResponse,
     RAGSource,
 )
+from src.rag.multihop import multihop_retrieve
 
 logger = logging.getLogger(__name__)
+
+
+# IsSup reflection prompt — borrowed from src/rag/self_rag.py and adapted for
+# advisor JSON output. Returns 1-5 grounding score.
+ISSUP_PROMPT = """\
+ประเมินว่าคำตอบ JSON ของระบบแอดไวเซอร์ด้านล่างมี "หลักฐานสนับสนุน" จากเอกสารบริบทมากแค่ไหน
+
+คำถาม: {question}
+
+บริบท (เอกสารที่ retrieve ได้):
+{context}
+
+JSON ที่ระบบสร้างขึ้น:
+{answer}
+
+ให้คะแนน 1-5:
+- 5 = ทุกการอ้างอิงและตัวเลขในคำตอบสามารถยืนยันได้จากบริบท
+- 4 = เกือบทั้งหมดยืนยันได้ มีจุดเล็กน้อยที่อนุมาน
+- 3 = ครึ่งหนึ่งยืนยันได้ ครึ่งหนึ่งเป็นการอนุมาน
+- 2 = ส่วนใหญ่อนุมาน หลักฐานน้อย
+- 1 = ไม่มีหลักฐานเลย ตอบจากความรู้ทั่วไป
+
+ตอบกลับเป็นตัวเลขตัวเดียว (1, 2, 3, 4, หรือ 5) เท่านั้น
+"""
 
 
 # Map English profile field names to Thai display labels used in the prompt.
@@ -188,23 +215,64 @@ def _normalize_status(value: str) -> str:
     return "unknown"
 
 
+def _issup_score(question: str, context_text: str, advisor_json: str) -> Optional[int]:
+    """Run a single-shot Self-RAG IsSup reflection on the advisor output."""
+    llm = getattr(Settings, "llm", None)
+    if llm is None:
+        return None
+    prompt = ISSUP_PROMPT.format(
+        question=question.strip(),
+        context=context_text[:4000],
+        answer=advisor_json[:3000],
+    )
+    try:
+        raw = str(llm.complete(prompt)).strip()
+    except Exception as exc:
+        logger.warning("IsSup reflection failed: %s", exc)
+        return None
+    match = re.search(r"[1-5]", raw)
+    return int(match.group()) if match else None
+
+
 def run_advisor(
     question: str,
     profile: AdvisorProfile,
     rag_manager: Any,
     top_k: int = 6,
+    use_multihop: bool = False,
+    use_self_rag: bool = False,
 ) -> AdvisorResponse:
     """Run profile-conditioned advisory reasoning over the RAG index.
 
     Steps:
-      1. Retrieve relevant policy chunks (semantic search via rag_manager).
+      1. Retrieve relevant policy chunks (single-hop or multi-hop).
       2. Build a structured prompt with question + profile + context.
       3. Ask LLM to return JSON with per-requirement pass/fail.
       4. Parse + normalise JSON. Fall back gracefully if LLM goes off-format.
+      5. (Optional) Run Self-RAG IsSup reflection. If score < 3, retry with
+         broader retrieval (top_k * 2) and re-synthesise.
     """
-    # Step 1: retrieve
-    rag_result = rag_manager.query(question, similarity_top_k=top_k, include_sources=True)
-    raw_sources: List[Dict[str, Any]] = rag_result.get("sources", []) or []
+    t_start = time.monotonic()
+    trace = AdvisorReasoningTrace(used_multihop=use_multihop, used_self_rag=use_self_rag)
+
+    # Step 1: retrieve — single-hop or multi-hop
+    if use_multihop:
+        profile_text = _format_profile_for_prompt(profile)
+        hop_result = multihop_retrieve(
+            question=question,
+            rag_manager=rag_manager,
+            profile_text=profile_text,
+            top_k_per_hop=max(3, top_k // 2),
+            max_total_sources=max(top_k * 2, 8),
+        )
+        raw_sources: List[Dict[str, Any]] = hop_result["sources"]
+        trace.sub_questions = hop_result["sub_questions"]
+        trace.sources_per_hop = hop_result["per_hop_counts"]
+        trace.total_sources_after_dedup = len(raw_sources)
+    else:
+        rag_result = rag_manager.query(question, similarity_top_k=top_k, include_sources=True)
+        raw_sources = rag_result.get("sources", []) or []
+        trace.total_sources_after_dedup = len(raw_sources)
 
     # Build sources list for the response
     response_sources: List[RAGSource] = []
@@ -287,7 +355,7 @@ def run_advisor(
             if text:
                 actions.append(text)
 
-    return AdvisorResponse(
+    response = AdvisorResponse(
         question=question,
         verdict=verdict,
         verdict_summary=summary,
@@ -295,3 +363,82 @@ def run_advisor(
         recommended_actions=actions,
         sources=response_sources,
     )
+
+    # Step 5: optional Self-RAG reflection
+    if use_self_rag:
+        score = _issup_score(question, context_block, raw_answer)
+        trace.issup_score = score
+        passed = (score is not None) and score >= 3
+        trace.issup_passed = passed
+        if score is not None and not passed:
+            # Retry once with broader retrieval — only single-hop top_k bump,
+            # multi-hop already widened things.
+            logger.info("Advisor IsSup score=%d, retrying with wider retrieval", score)
+            trace.self_rag_retried = True
+            try:
+                wider = rag_manager.query(
+                    question, similarity_top_k=top_k * 2, include_sources=True
+                )
+                wider_sources = wider.get("sources", []) or []
+                if len(wider_sources) > len(raw_sources):
+                    response_sources_2 = []
+                    for src in wider_sources:
+                        meta = src.get("metadata", {}) or {}
+                        response_sources_2.append(
+                            RAGSource(
+                                title=meta.get("title", "Unknown"),
+                                category=meta.get("category", "Uncategorized"),
+                                institution=meta.get("institution"),
+                                score=src.get("score"),
+                            )
+                        )
+                    context_block_2 = _build_context_block(wider_sources)
+                    prompt_2 = PROMPT_TEMPLATE.format(
+                        question=question.strip(),
+                        profile=profile_block,
+                        context=context_block_2,
+                    )
+                    raw_answer_2 = str(llm.complete(prompt_2))
+                    parsed_2 = _extract_json(raw_answer_2)
+                    if parsed_2:
+                        verdict_2 = _normalize_verdict(str(parsed_2.get("verdict", "")))
+                        summary_2 = str(parsed_2.get("verdict_summary", "")).strip() or summary
+                        checks_2_raw = parsed_2.get("requirement_checks") or []
+                        checks_2: List[AdvisorRequirementCheck] = []
+                        if isinstance(checks_2_raw, list):
+                            for item in checks_2_raw[:10]:
+                                if not isinstance(item, dict):
+                                    continue
+                                checks_2.append(
+                                    AdvisorRequirementCheck(
+                                        requirement=str(item.get("requirement", "")).strip()
+                                        or "ไม่ระบุ",
+                                        user_value=str(item.get("user_value", "")).strip()
+                                        or "ไม่ระบุ",
+                                        status=_normalize_status(str(item.get("status", ""))),
+                                        explanation=str(item.get("explanation", "")).strip(),
+                                    )
+                                )
+                        actions_2_raw = parsed_2.get("recommended_actions") or []
+                        actions_2: List[str] = []
+                        if isinstance(actions_2_raw, list):
+                            for a in actions_2_raw[:6]:
+                                t = str(a).strip()
+                                if t:
+                                    actions_2.append(t)
+                        response.verdict = verdict_2
+                        response.verdict_summary = summary_2
+                        response.requirement_checks = checks_2 or response.requirement_checks
+                        response.recommended_actions = actions_2 or response.recommended_actions
+                        response.sources = response_sources_2
+                        # Re-score
+                        rescore = _issup_score(question, context_block_2, raw_answer_2)
+                        if rescore is not None:
+                            trace.issup_score = rescore
+                            trace.issup_passed = rescore >= 3
+            except Exception as exc:
+                logger.warning("Self-RAG retry failed: %s", exc)
+
+    trace.elapsed_seconds = round(time.monotonic() - t_start, 3)
+    response.reasoning_trace = trace
+    return response

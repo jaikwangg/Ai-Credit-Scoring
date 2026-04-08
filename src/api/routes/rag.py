@@ -161,6 +161,8 @@ async def rag_advisor(payload: AdvisorRequest):
             profile=payload.profile,
             rag_manager=manager,
             top_k=payload.top_k or 6,
+            use_multihop=bool(payload.use_multihop),
+            use_self_rag=bool(payload.use_self_rag),
         )
     except Exception as exc:
         logger.error("Advisor failed: %s", exc)

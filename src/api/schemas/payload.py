@@ -197,12 +197,24 @@ class AdvisorRequest(BaseModel):
       1. Extract eligibility requirements from the retrieved policy chunks
       2. Compare each requirement against the supplied user profile
       3. Return structured pass/fail per requirement + overall verdict + advice
-
-    This is the difference between "extractive QA" and actual "advisory reasoning".
     """
     question: str = Field(..., description="The user's natural-language question.")
     profile: AdvisorProfile = Field(..., description="Applicant profile to evaluate against the policy.")
     top_k: Optional[int] = Field(6, description="Number of policy chunks to retrieve.")
+    use_multihop: Optional[bool] = Field(
+        False,
+        description=(
+            "If true, decompose the question into sub-questions and retrieve "
+            "context per sub-question (Approach 2). Improves recall on wide questions."
+        ),
+    )
+    use_self_rag: Optional[bool] = Field(
+        False,
+        description=(
+            "If true, run a Self-RAG-style reflection loop after the first answer "
+            "to verify groundedness and optionally retry retrieval (Approach 3)."
+        ),
+    )
 
 
 class AdvisorRequirementCheck(BaseModel):
@@ -211,6 +223,19 @@ class AdvisorRequirementCheck(BaseModel):
     user_value: str = Field(..., description="The user's value for this requirement (or 'ไม่ระบุ').")
     status: str = Field(..., description="pass | fail | unknown | not_applicable")
     explanation: str = Field(..., description="Why this status — references policy text.")
+
+
+class AdvisorReasoningTrace(BaseModel):
+    """Diagnostic trace of which reasoning approaches were used."""
+    used_multihop: bool = False
+    sub_questions: List[str] = Field(default_factory=list)
+    sources_per_hop: List[int] = Field(default_factory=list)
+    total_sources_after_dedup: int = 0
+    used_self_rag: bool = False
+    issup_score: Optional[int] = Field(None, description="[IsSup] reflection score 1-5.")
+    issup_passed: Optional[bool] = None
+    self_rag_retried: bool = False
+    elapsed_seconds: float = 0.0
 
 
 class AdvisorResponse(BaseModel):
@@ -222,6 +247,10 @@ class AdvisorResponse(BaseModel):
     recommended_actions: List[str] = Field(default_factory=list, description="Next steps the user can take to improve eligibility.")
     sources: List[RAGSource] = Field(default_factory=list)
     raw_answer: Optional[str] = Field(None, description="Raw LLM output for debugging.")
+    reasoning_trace: Optional[AdvisorReasoningTrace] = Field(
+        None,
+        description="Diagnostic trace showing which reasoning approaches ran (multi-hop, Self-RAG, etc).",
+    )
 
 
 class SelfRAGTraceSchema(BaseModel):
