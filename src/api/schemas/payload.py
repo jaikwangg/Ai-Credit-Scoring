@@ -183,7 +183,10 @@ class AdvisorProfile(BaseModel):
     credit_score: Optional[int] = Field(None, description="Bureau credit score (300-850 range).")
     credit_grade: Optional[str] = Field(None, description="Credit grade letter (AA/BB/CC/DD/FF).")
     outstanding_debt: Optional[float] = Field(None, description="Total outstanding debt in THB.")
-    overdue_amount: Optional[float] = Field(None, description="Past-due amount in THB.")
+    overdue_days_max: Optional[int] = Field(
+        None,
+        description="Maximum days past due ever recorded (credit-bureau bucket: 0/15/30/60/90/120).",
+    )
     loan_amount_requested: Optional[float] = Field(None, description="Requested loan amount in THB.")
     loan_term_years: Optional[float] = Field(None, description="Requested loan term in years.")
     interest_rate: Optional[float] = Field(None, description="Quoted interest rate %.")

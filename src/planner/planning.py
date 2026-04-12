@@ -14,8 +14,8 @@ FEATURE_LABELS_TH: Dict[str, str] = {
     "Marriage_Status": "สถานภาพสมรส",
     "credit_score": "คะแนนเครดิต",
     "credit_grade": "เกรดเครดิต",
-    "outstanding": "ยอดหนี้คงค้าง",
-    "overdue": "ยอดค้างชำระ",
+    "outstanding": "ภาระหนี้สินรวม",
+    "overdue": "จำนวนวันค้างชำระสูงสุด",
     "Coapplicant": "ผู้กู้ร่วม",
     "loan_amount": "วงเงินกู้",
     "loan_term": "ระยะเวลากู้",
@@ -768,7 +768,7 @@ def _llm_synthesize_plan(plan: dict, user_input: dict) -> str:
 === ข้อมูลผู้ขอสินเชื่อ ===
 - รายได้/เดือน: {salary:,.0f} บาท | อาชีพ: {occupation}
 - คะแนนเครดิต: {credit_score} | เกรด: {credit_grade}
-- หนี้คงค้าง: {outstanding:,.0f} บาท | ค้างชำระ: {overdue} วัน
+- ภาระหนี้สินรวม: {outstanding:,.0f} บาท | จำนวนวันค้างชำระสูงสุดในประวัติ: {overdue:.0f} วัน
 - วงเงินขอกู้: {loan_amount:,.0f} บาท | ระยะเวลา: {loan_term} ปี | ผู้กู้ร่วม: {coapplicant}
 
 === ผลการวิเคราะห์ของแบบจำลอง ===
@@ -791,8 +791,12 @@ def _llm_synthesize_plan(plan: dict, user_input: dict) -> str:
 
 ข้อห้ามเด็ดขาด: ห้ามรับประกันการอนุมัติ ห้ามแนะนำปลอมแปลงเอกสาร ห้ามให้ข้อมูลเท็จ ห้ามสัญญาผล"""
 
+    # Use retry-with-backoff helper to survive Gemini 503/UNAVAILABLE.
+    # Without this, every transient API hiccup silently falls back to the
+    # rule-based render and the user loses the rich Gemini-synthesized report.
+    from src.rag.advisor import llm_complete_retry  # local import to avoid cycle
     try:
-        response = llm.complete(prompt)
+        response = llm_complete_retry(prompt, llm=llm, label="planner_synth_plan")
         text = _normalize_whitespace(str(response).strip())
         if len(text) < 150:
             return ""
@@ -800,7 +804,8 @@ def _llm_synthesize_plan(plan: dict, user_input: dict) -> str:
         if _contains_forbidden(text, FORBIDDEN_FRAUD_TOKENS + FORBIDDEN_PROMISE_TOKENS):
             return ""
         return text
-    except Exception:
+    except Exception as exc:
+        logger.warning("planner_synth_plan failed after retries: %s", exc)
         return ""
 
 
@@ -833,15 +838,18 @@ def _llm_synthesize_approved(decision: dict, checklist_text: str, user_input: di
 
 ห้ามรับประกันการอนุมัติเด็ดขาด"""
 
+    # Same retry treatment as the rejection-path synthesis above.
+    from src.rag.advisor import llm_complete_retry  # local import to avoid cycle
     try:
-        response = llm.complete(prompt)
+        response = llm_complete_retry(prompt, llm=llm, label="planner_synth_approved")
         text = _normalize_whitespace(str(response).strip())
         if len(text) < 100:
             return ""
         if _contains_forbidden(text, FORBIDDEN_PROMISE_TOKENS):
             return ""
         return text
-    except Exception:
+    except Exception as exc:
+        logger.warning("planner_synth_approved failed after retries: %s", exc)
         return ""
 
 
@@ -891,12 +899,14 @@ def _issup_check_plan(result_th: str, actions: List[dict]) -> Optional[int]:
 
 ตอบเฉพาะตัวเลข:""".strip()
 
+    from src.rag.advisor import llm_complete_retry  # local import to avoid cycle
     try:
         import re as _re
-        raw = str(llm.complete(prompt)).strip()
+        raw = llm_complete_retry(prompt, llm=llm, label="planner_issup").strip()
         match = _re.search(r"[1-5]", raw)
         return int(match.group()) if match else None
-    except Exception:
+    except Exception as exc:
+        logger.warning("planner_issup failed after retries: %s", exc)
         return None
 
 
