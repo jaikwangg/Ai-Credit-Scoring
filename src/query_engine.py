@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from llama_index.core import VectorStoreIndex
@@ -431,7 +432,70 @@ def _normalize_answer_text(
     return text.strip()
 
 
-def format_source_display(metadata: dict) -> dict:
+def _clean_source_value(value: Any) -> str:
+    """Return a usable source display value, treating placeholders as empty."""
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    if text.lower() in {"unknown", "none", "null", "n/a", "na", "ไม่ระบุ", "ไม่ระบุชื่อเอกสาร"}:
+        return ""
+    return text
+
+
+def _title_from_content(content: str) -> str:
+    """Extract a document title from stored node text when metadata is stale."""
+    if not content:
+        return ""
+
+    patterns = (
+        r"TITLE:\s*(.+?)(?:\n|$)",
+        r"title:\s*([^|\]\n]+)",
+        r"\[เอกสาร\s+\d+\]\s*([^\n(]+)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, content, flags=re.IGNORECASE)
+        if match:
+            return _clean_source_value(match.group(1))
+    return ""
+
+
+def _title_from_path(value: Any) -> str:
+    """Create a readable fallback from a file name/path."""
+    raw = _clean_source_value(value)
+    if not raw:
+        return ""
+    name = Path(raw).name
+    if not name:
+        return ""
+    stem = Path(name).stem
+    return stem.replace("-", " ").replace("_", " ").strip()
+
+
+def _source_title(metadata: dict, content: str = "") -> str:
+    """Resolve the best display title for a retrieved source."""
+    title = _clean_source_value(metadata.get("title"))
+    if title:
+        return title
+
+    content_title = _title_from_content(content)
+    if content_title:
+        return content_title
+
+    file_name = _clean_source_value(metadata.get("file_name"))
+    if file_name:
+        return file_name
+
+    for key in ("source", "file_path"):
+        path_title = _title_from_path(metadata.get(key))
+        if path_title:
+            return path_title
+
+    return "Unknown"
+
+
+def format_source_display(metadata: dict, content: str = "") -> dict:
     """
     Format metadata for display with fallbacks
 
@@ -440,12 +504,12 @@ def format_source_display(metadata: dict) -> dict:
 
     Returns:
         Formatted dictionary with title, category, source_url, institution, publication_date
-        - title: Uses metadata title, falls back to file_name, then "Unknown"
+        - title: Uses metadata title, falls back to title in content, file_name/path, then "Unknown"
         - category: Uses metadata category, falls back to "Uncategorized"
         - Other fields: Passed through as-is (may be None)
     """
     return {
-        "title": metadata.get("title", metadata.get("file_name", "Unknown")),
+        "title": _source_title(metadata, content),
         "category": metadata.get("category", "Uncategorized"),
         "source_url": metadata.get("source_url"),
         "institution": metadata.get("institution"),
@@ -948,7 +1012,7 @@ class QueryEngineManager:
                 metadata = _extract_node_metadata(node)
                 source_info = {
                     "content": text[:200] + "..." if len(text) > 200 else text,
-                    "metadata": format_source_display(metadata),
+                    "metadata": format_source_display(metadata, text),
                     "score": getattr(node, "score", None),
                 }
                 sources.append(source_info)
@@ -1036,7 +1100,7 @@ class QueryEngineManager:
                 metadata = _extract_node_metadata(node)
                 source_info = {
                     "content": text[:200] + "..." if len(text) > 200 else text,
-                    "metadata": format_source_display(metadata),
+                    "metadata": format_source_display(metadata, text),
                     "score": getattr(node, "score", None),
                 }
                 sources.append(source_info)
@@ -1095,7 +1159,7 @@ class QueryEngineManager:
                 source_info = {
                     "index": i,
                     "content_preview": text[:100] + "..." if len(text) > 100 else text,
-                    "metadata": format_source_display(metadata),
+                    "metadata": format_source_display(metadata, text),
                     "score": getattr(node, "score", None),
                 }
                 explanation["sources"].append(source_info)
