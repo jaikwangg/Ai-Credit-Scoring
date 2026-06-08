@@ -170,6 +170,51 @@ def _trim_text(text: str, max_len: int = 180) -> str:
     return cleaned[: max_len - 3].rstrip() + "..."
 
 
+def _format_money(value: Any) -> str:
+    amount = _to_float(value)
+    if amount is None or amount <= 0:
+        return "ไม่ระบุ"
+    return f"{amount:,.0f} บาท"
+
+
+def _format_number(value: Any, default: str = "ไม่ระบุ") -> str:
+    parsed = _to_float(value)
+    if parsed is None:
+        raw = str(value or "").strip()
+        return raw or default
+    return f"{parsed:,.0f}"
+
+
+def _approved_profile_snapshot(user_input: dict) -> str:
+    occupation = str(user_input.get("Occupation") or "ไม่ระบุ").strip()
+    coapplicant = "มีผู้กู้ร่วม" if _to_bool(user_input.get("Coapplicant")) else "ไม่มีผู้กู้ร่วม"
+    return (
+        f"ข้อมูลที่ใช้ประเมิน: รายได้ {_format_money(user_input.get('Salary'))}/เดือน, "
+        f"อาชีพ {occupation}, คะแนนเครดิต {_format_number(user_input.get('credit_score'))}, "
+        f"เกรด {str(user_input.get('credit_grade') or 'ไม่ระบุ')}, "
+        f"ภาระหนี้สินรวม {_format_money(user_input.get('outstanding'))}, "
+        f"วงเงินขอกู้ {_format_money(user_input.get('loan_amount'))}, {coapplicant}"
+    )
+
+
+def _approved_strengths_from_shap(shap_json: dict, limit: int = 3) -> str:
+    try:
+        summary = summarize_shap(normalize_shap(shap_json), top_k=max(limit, 3))
+    except Exception:
+        return "ไม่พบปัจจัยสนับสนุนที่อ่านได้จาก SHAP"
+
+    positives = [
+        item for item in (summary.get("top_positive", []) or [])
+        if item.get("feature") not in NON_ACTIONABLE_FEATURES
+    ][:limit]
+    if not positives:
+        return "ไม่พบปัจจัยบวกที่เด่นชัดจาก SHAP"
+    return ", ".join(
+        f"{item.get('label_th', item.get('feature'))} ({(_to_float(item.get('shap'), 0.0) or 0.0):+.2f})"
+        for item in positives
+    )
+
+
 def _extract_top_source(result: dict) -> Optional[dict]:
     sources = result.get("sources")
     if not isinstance(sources, list) or not sources:
@@ -573,13 +618,26 @@ def _dedupe_and_merge_actions(actions: List[dict]) -> List[dict]:
 def _action_brief(action: dict) -> str:
     title = str(action.get("title_th", "")).strip()
     how_th = str(action.get("how_th", "")).strip()
-    brief = f"{title}: {_trim_text(how_th, 110)}"
+    how_clean = how_th.replace(GENERAL_ONLY_NOTE, "").strip()
+    how_clean = how_clean.split(" สาระจากเอกสาร:", 1)[0].strip()
+    how_clean = how_clean.rstrip(". ")
+    brief = f"{title}: {how_clean}" if how_clean and how_clean != title else title
     evidence = action.get("evidence", []) or []
-    if evidence:
+    if evidence and GENERAL_ONLY_NOTE not in how_th:
         source_title = str(evidence[0].get("source_title", "")).strip()
         if source_title:
             brief += f" (อ้างอิง: {source_title})"
     return brief
+
+
+def _append_action_section(lines: List[str], heading: str, actions: List[dict], fallback: str) -> None:
+    lines.append(f"**{heading}**")
+    if actions:
+        for action in actions:
+            lines.append(f"- {_action_brief(action)}")
+    else:
+        lines.append(f"- {fallback}")
+    lines.append("")
 
 
 def _pick_groups(merged_actions: List[dict], groups: Iterable[str]) -> List[dict]:
@@ -614,7 +672,7 @@ def render_plan_th(plan_json: dict, style: str = "paragraph") -> str:
     medium_actions = _pick_groups(merged_actions, ["credit_behavior", "other"])
 
     lines: List[str] = []
-    lines.append("สรุปผลการวิเคราะห์")
+    lines.append("**สรุปผลการวิเคราะห์**")
     lines.append(f"- ผลการประเมินของแบบจำลอง: {'ความน่าจะเป็นอนุมัติสูง' if approved else 'ความน่าจะเป็นปฏิเสธสูง'} (P(อนุมัติ)={p_approve:.3f} | P(ปฏิเสธ)={p_reject:.3f})")
     if top3_text:
         lines.append(f"- ตัวแปรที่มีผลลดโอกาสอนุมัติ (SHAP เชิงลบ): {top3_text}")
@@ -635,9 +693,24 @@ def render_plan_th(plan_json: dict, style: str = "paragraph") -> str:
         lines.append(para2)
 
     elif style == "123":
-        lines.append("1) มาตรการเร่งด่วน: " + ("; ".join(_action_brief(a) for a in immediate_actions) or "บรรเทาภาระหนี้เร่งด่วนและจัดเตรียมหลักฐานรายได้ให้ครบถ้วน"))
-        lines.append("2) มาตรการระยะสั้น (1-3 เดือน): " + ("; ".join(_action_brief(a) for a in short_actions) or "ปรับโครงสร้างวงเงิน/ระยะเวลากู้ และเปรียบเทียบทางเลือกอัตราดอกเบี้ย"))
-        lines.append("3) มาตรการระยะกลาง (3-6 เดือน): " + ("; ".join(_action_brief(a) for a in medium_actions) or "ฟื้นฟูวินัยการชำระหนี้และติดตามผลก่อนยื่นขอใหม่"))
+        _append_action_section(
+            lines,
+            "มาตรการเร่งด่วน",
+            immediate_actions,
+            "บรรเทาภาระหนี้เร่งด่วนและจัดเตรียมหลักฐานรายได้ให้ครบถ้วน",
+        )
+        _append_action_section(
+            lines,
+            "มาตรการระยะสั้น (1-3 เดือน)",
+            short_actions,
+            "ปรับโครงสร้างวงเงิน/ระยะเวลากู้ และเปรียบเทียบทางเลือกอัตราดอกเบี้ย",
+        )
+        _append_action_section(
+            lines,
+            "มาตรการระยะกลาง (3-6 เดือน)",
+            medium_actions,
+            "ฟื้นฟูวินัยการชำระหนี้และติดตามผลก่อนยื่นขอใหม่",
+        )
 
     else:  # ABC
         lines.append("มาตรการ A (บรรเทาความเสี่ยงเร่งด่วน): " + ("; ".join(_action_brief(a) for a in immediate_actions) or "จัดการภาระหนี้เร่งด่วนและหลักฐานรายได้"))
@@ -647,7 +720,7 @@ def render_plan_th(plan_json: dict, style: str = "paragraph") -> str:
     clarifying = plan.get("clarifying_questions", []) or []
     if clarifying:
         lines.append("")
-        lines.append("ข้อมูลที่ควรยืนยันเพิ่มเติม")
+        lines.append("**ข้อมูลที่ควรยืนยันเพิ่มเติม**")
         for question in clarifying:
             lines.append(f"- {question}")
 
@@ -665,37 +738,47 @@ def plan_to_thai_text(plan: dict) -> str:
 
 def _build_approved_checklist(
     decision: dict,
+    user_input: dict,
+    shap_json: dict,
     rag_lookup: Optional[Callable[[str], dict]],
-) -> str:
+) -> Tuple[str, List[dict]]:
     p_approve = _to_float(decision.get("p_approve"), default=0.0) or 0.0
     p_reject = _to_float(decision.get("p_reject"), default=0.0) or 0.0
 
     lines: List[str] = []
-    lines.append("ผลการวิเคราะห์ของแบบจำลอง: ความน่าจะเป็นอนุมัติสูง")
-    lines.append(f"P(อนุมัติ)={p_approve:.3f} | P(ปฏิเสธ)={p_reject:.3f}")
-    lines.append("รายการเอกสาร/ข้อมูลที่จำเป็นสำหรับการยื่นขอสินเชื่อ")
+    rag_sources: List[dict] = []
+    lines.append("สรุปผลการประเมิน")
+    lines.append(
+        "แบบจำลองประเมินว่าเคสนี้มีแนวโน้มอนุมัติในระดับสูง "
+        f"(P(อนุมัติ)={p_approve:.3f} | P(ปฏิเสธ)={p_reject:.3f}) "
+        "แต่ผลนี้เป็นคะแนนจากแบบจำลองวิจัย ไม่ใช่คำตัดสินสินเชื่อจริง"
+    )
+    lines.append(_approved_profile_snapshot(user_input))
+    lines.append(f"ปัจจัยที่ช่วยเพิ่มโอกาสอนุมัติจาก SHAP: {_approved_strengths_from_shap(shap_json)}")
+    lines.append("")
+    lines.append("Checklist ก่อนยื่นคำขอ")
+    lines.append("รายการต่อไปนี้เป็นข้อมูลประกอบการเตรียมเอกสาร ไม่ใช่เหตุผลที่แบบจำลองให้คะแนนสูง")
 
     checklist_queries = APPROVED_CHECKLIST_QUERIES[:PLANNER_APPROVED_MAX_RAG_QUERIES]
 
     for idx, (title, query) in enumerate(checklist_queries, start=1):
         answer, evidence = _rag_fetch(rag_lookup, query)
-        if answer and answer != NO_ANSWER_SENTINEL:
-            line = f"{idx}) {title}: {_trim_text(answer, 200)}"
-            if evidence:
-                line += f" (แหล่งข้อมูล: {evidence[0].get('source_title', 'N/A')})"
+        fallback = APPROVED_CHECKLIST_FALLBACKS.get(title, GENERAL_ONLY_NOTE)
+        if answer and answer != NO_ANSWER_SENTINEL and evidence:
+            source_title = str(evidence[0].get("source_title") or "เอกสารนโยบายสินเชื่อ").strip()
+            line = f"{idx}) {title}: {fallback} (อ้างอิงเอกสาร: {source_title})"
+            rag_sources.extend(evidence)
         else:
-            # RAG missed (Ollama OOM, low similarity, etc.) — render general Thai
-            # banking knowledge instead of the NO_ANSWER sentinel so the user sees
-            # actionable content. Mark it clearly as general guidance.
-            fallback = APPROVED_CHECKLIST_FALLBACKS.get(title, "")
-            if fallback:
-                line = f"{idx}) {title}: {fallback} [คำแนะนำทั่วไป]"
-            else:
-                line = f"{idx}) {title}: {GENERAL_ONLY_NOTE}"
+            line = f"{idx}) {title}: {fallback} [คำแนะนำทั่วไป]"
         lines.append(line)
 
+    lines.append("")
+    lines.append(
+        "ข้อควรระวัง: หากต้องการใช้รายงานในบริบทจริง ควรตรวจสอบเอกสารล่าสุดกับธนาคาร "
+        "และเพิ่มข้อมูลเชิงสัญญา เช่น ราคาทรัพย์ เงินดาวน์ LTV ภาระผ่อนต่อเดือน และประวัติเครดิตบูโร"
+    )
     lines.append("หมายเหตุ: ผลลัพธ์นี้จัดทำโดยแบบจำลองทางสถิติเพื่อวัตถุประสงค์ทางการวิจัย มิใช่การพิจารณาสินเชื่อจริงจากสถาบันการเงิน")
-    return _normalize_whitespace("\n".join(lines))
+    return _normalize_whitespace("\n".join(lines)), rag_sources
 
 
 def _llm_synthesize_plan(plan: dict, user_input: dict) -> str:
@@ -920,13 +1003,14 @@ def generate_response(
     decision = parse_model_output(model_output)
 
     if decision["approved"]:
-        checklist_text = _build_approved_checklist(decision, rag_lookup)
+        checklist_text, rag_sources = _build_approved_checklist(decision, user_input, shap_json, rag_lookup)
         llm_text = _llm_synthesize_approved(decision, checklist_text, user_input) if PLANNER_ENABLE_LLM_SYNTHESIS else ""
         result_th = llm_text or checklist_text
         return {
             "mode": "approved_guidance",
             "decision": decision,
             "result_th": result_th,
+            "rag_sources": rag_sources,
         }
 
     plan = generate_plan(
